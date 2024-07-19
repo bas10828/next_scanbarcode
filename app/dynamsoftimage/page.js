@@ -132,7 +132,7 @@ export default () => {
           case 'UniFi':
             // แยกข้อมูลสำหรับ Ubiquiti
             const ubiquitiData = result.scannedData;
-            sn = ubiquitiData; // ทั้งหมดเป็น S/N
+            sn = ubiquitiData.substring(0, 19); // ทั้งหมดเป็น S/N
             mac = formatMacAddress(ubiquitiData.substring(0, 12)); // 12 ตัวแรกเป็น MAC
             break;
 
@@ -161,7 +161,8 @@ export default () => {
           ...result,
           sn,
           mac,
-          model
+          model,
+          macNoColon: formatMacAddressNoColon(mac)
         };
       });
 
@@ -174,6 +175,11 @@ export default () => {
   const formatMacAddress = (mac) => {
     if (!mac) return 'non'; // กรณีที่ mac เป็น null หรือ undefined
     return mac.match(/.{1,2}/g).join(':');
+  };
+
+  const formatMacAddressNoColon = (mac) => {
+    if (!mac) return 'non'; // กรณีที่ mac เป็น null หรือ undefined
+    return mac.replace(/:/g, '');
   };
 
   const handleBrandChange = (fileName, brand) => {
@@ -251,7 +257,7 @@ export default () => {
             <MenuItem value="select-all-reyee">Select All as Reyee</MenuItem>
             <MenuItem value="select-all-unifi">Select All as UniFi</MenuItem>
             <MenuItem value="select-all-tp-link">Select All as TP-Link</MenuItem>
-            <MenuItem value="select-all-cisco">Select All as Cisco</MenuItem>
+            {/* <MenuItem value="select-all-cisco">Select All as Cisco</MenuItem> */}
           </Select>
         </FormControl>
         <TableContainer component={Paper} sx={{ marginTop: 2 }}>
@@ -263,6 +269,7 @@ export default () => {
                 <StyledTableCell>Brand</StyledTableCell>
                 <StyledTableCell>S/N</StyledTableCell>
                 <StyledTableCell>MAC</StyledTableCell>
+                <StyledTableCell>MAC_</StyledTableCell> 
                 <StyledTableCell>Model</StyledTableCell>
               </StyledTableRow>
             </TableHead>
@@ -281,12 +288,13 @@ export default () => {
                         <MenuItem value="reyee">Reyee</MenuItem>
                         <MenuItem value="UniFi">UniFi</MenuItem>
                         <MenuItem value="tp-link">TP-Link</MenuItem>
-                        <MenuItem value="cisco">Cisco</MenuItem>
+                        {/* <MenuItem value="cisco">Cisco</MenuItem> */}
                       </Select>
                     </FormControl>
                   </TableCell>
                   <TableCell>{result.sn}</TableCell>
                   <TableCell>{result.mac}</TableCell>
+                  <TableCell>{result.macNoColon}</TableCell>
                   <TableCell>{result.model}</TableCell>
                 </StyledTableRow>
               ))}
