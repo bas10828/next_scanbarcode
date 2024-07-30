@@ -1,18 +1,62 @@
+/* จัดรูปแบบของตารางให้ดูเรียบร้อยและสวยงาม */
 .capture-img {
-    width: 100%;
-    height: 100%;
-    font-family:Consolas,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New, monospace;
-  }
-  
-  .capture-img .img-ipt {
-    width: 80%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    border: 1px solid black;
-    margin: 0 auto;
-  }
-  
-  .capture-img .result-area {
-    margin-top: 20px;
-  }
+  width: 100%;
+  height: 100%;
+  font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
+}
+
+.capture-img .img-ipt {
+  width: 80%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  border: 1px solid black;
+  margin: 0 auto;
+}
+
+.capture-img .result-area {
+  margin-top: 20px;
+}
+
+/* กรอบรอบตาราง */
+.MuiPaper-root {
+  border: 2px solid #ddd; /* สีของกรอบ */
+  border-radius: 8px; /* มุมกรอบโค้ง */
+}
+
+/* กำหนดสีพื้นหลังและสีข้อความของ TableCell */
+.MuiTableCell-root {
+  padding: 16px; /* ระยะห่างภายในเซลล์ */
+}
+
+.MuiTableCell-root.MuiTableCell-head {
+  background-color: #3f51b5; /* สีพื้นหลังของหัวตาราง */
+  color: white; /* สีข้อความของหัวตาราง */
+}
+
+/* กำหนดสีพื้นหลังของแต่ละแถว */
+.MuiTableRow-root:nth-of-type(even) {
+  background-color: #f5f5f5; /* สีพื้นหลังของแถวคู่ */
+}
+
+/* เพิ่มกรอบภายในแต่ละเซลล์ */
+.MuiTableCell-root {
+  border: 1px solid #ddd; /* สีของกรอบภายในเซลล์ */
+}
+
+/* เพิ่มมุมโค้งให้กับเซลล์ */
+.MuiTableCell-root {
+  border-radius: 4px; /* มุมโค้งของเซลล์ */
+}
+
+/* กำหนดขนาดของปุ่มในตาราง */
+.MuiButton-root {
+  padding: 8px 16px; /* ขนาดของปุ่ม */
+  font-size: 16px; /* ขนาดของข้อความในปุ่ม */
+}
+
+/* กำหนดขนาดและรูปแบบของตารางทั้งหมด */
+.MuiTable-root {
+  border-collapse: separate; /* แยกการตกแต่งของกรอบเซลล์ */
+  border-spacing: 0; /* ระยะห่างระหว่างเซลล์ */
+}

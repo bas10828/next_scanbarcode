@@ -219,6 +219,7 @@ export default () => {
       'Brand': brandSelections[result.fileName] || '',
       'S/N': result.sn,
       'MAC': result.mac,
+      'MAC_': result.macNoColon,
       'Model': result.model
     })));
     const wb = XLSX.utils.book_new();
