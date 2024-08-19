@@ -1,0 +1,119 @@
+.image-capture-container {
+  width: 100%;
+  padding: 20px;
+  font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
+  background-color: #f0f0f0; /* เพิ่มพื้นหลังเพื่อความสวยงาม */
+
+  margin: 0 auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.input-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto 20px;
+  display: flex;
+  justify-content: center;
+  border: 1px solid #ddd;
+  padding: 10px;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+
+  margin-bottom: 20px;
+}
+
+.results-container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 20px auto;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow-x: auto; /* เพื่อให้สามารถเลื่อนดูคอลัมน์ได้ถ้ามีจำนวนมาก */
+}
+
+.MuiTableContainer-root {
+  width: 100%;
+}
+
+.MuiTable-root {
+  width: 100%;
+  table-layout: auto; /* ปรับขนาดคอลัมน์ให้พอดีกับข้อความ */
+  border-collapse: collapse; /* รวมเส้นขอบของตาราง */
+}
+
+.MuiTableCell-root {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center; /* จัดข้อความให้อยู่กลาง */
+  word-wrap: break-word; /* ทำให้ข้อความตัดบรรทัดถ้ายาวเกินไป */
+  white-space: nowrap; /* ป้องกันไม่ให้ข้อความถูกตัด */
+  font-size: 0.9rem;
+}
+
+.MuiTableHead-root {
+  background-color: #6200ea; /* สีพื้นหลังของหัวตาราง */
+  color: #fff; /* สีตัวอักษรของหัวตาราง */
+}
+
+.MuiTableRow-root:nth-of-type(odd) {
+  background-color: #f3e5f5; /* สีพื้นหลังของแถวคี่ */
+}
+
+.MuiTableRow-root:nth-of-type(even) {
+  background-color: #ede7f6; /* สีพื้นหลังของแถวคู่ */
+}
+
+.MuiSelect-root {
+  min-width: 120px; /* กำหนดความกว้างขั้นต่ำของ Select */
+}
+
+.textField-custom {
+  padding: 2px; /* ลด padding ภายใน input */
+  font-size: 12px; /* ปรับขนาดฟอนต์ */
+  width: 100%; /* ให้ช่องขยายเต็มความกว้างของคอลัมน์ */
+}
+
+.textField-root {
+  padding: 0; /* ลด padding ของ root input */
+  height: 28px; /* ปรับความสูงของ input */
+  width: 100%;
+}
+
+.select-all-dropdown {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.select-all-dropdown .MuiFormControl-root {
+  width: 250px;
+}
+
+.export-container {
+  text-align: right;
+  margin-top: 20px;
+}
+
+.export-container .MuiButton-root {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+}
+
+.export-container .MuiButton-root:hover {
+  background-color: #0056b3;
+}
+
+.table-cell-text {
+  padding: 8px;
+  border: 1px solid #ddd;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

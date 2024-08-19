@@ -1,5 +1,5 @@
 {
-  "name": "next_scanqr",
+  "name": "dbrjs-next-sample",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,29 +9,25 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@emotion/react": "^11.11.4",
-    "@emotion/styled": "^11.11.5",
-    "@mui/material": "^5.16.1",
-    "@zxing/browser": "^0.1.5",
-    "@zxing/library": "^0.21.2",
-    "dynamsoft-barcode-reader": "^10.2.10",
-    "dynamsoft-capture-vision-router": "^2.2.30",
-    "dynamsoft-javascript-barcode": "^9.6.42",
-    "dynamsoft-license": "^3.2.21",
-    "jsqr": "^1.4.0",
-    "next": "14.2.5",
-    "quagga": "^0.12.1",
+    "@emotion/react": "^11.13.0",
+    "@emotion/styled": "^11.13.0",
+    "@mui/icons-material": "^5.16.7",
+    "@mui/material": "^5.16.7",
+    "dynamsoft-barcode-reader-bundle": "10.2.1000",
+    "file-saver": "^2.0.5",
+    "heic2any": "^0.0.4",
+    "jszip": "^3.10.1",
+    "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",
-    "react-dropzone": "^14.2.3",
-    "tesseract.js": "^5.1.0",
-    "webrtc-adapter": "^9.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "eslint": "^8",
-    "eslint-config-next": "14.2.5",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1"
+    "eslint-config-next": "14.2.3",
+    "typescript": "^5"
   }
 }
