@@ -5,6 +5,7 @@ import { Container, Typography, Button, CircularProgress, Box, Grid, IconButton 
 import DownloadIcon from '@mui/icons-material/Download';
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
+import Image from 'next/image';
 
 const ImageConvert: React.FC = () => {
   const [convertedImages, setConvertedImages] = useState<{ name: string; url: string }[]>([]);
@@ -84,7 +85,13 @@ const ImageConvert: React.FC = () => {
           <ImageList cols={3} gap={16}>
             {convertedImages.map((image, index) => (
               <ImageListItem key={index}>
-                <img src={image.url} alt={`Converted ${index + 1}`} loading="lazy" />
+                <Image 
+                  src={image.url} 
+                  alt={`Converted ${index + 1}`} 
+                  width={500} 
+                  height={500} 
+                  loading="lazy" 
+                />
                 <Box sx={{ textAlign: 'center', mt: 1 }}>
                   <IconButton
                     color="primary"
