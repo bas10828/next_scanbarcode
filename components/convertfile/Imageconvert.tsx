@@ -6,6 +6,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
 import Image from 'next/image';
+import "./imageconvert.css"
 
 const ImageConvert: React.FC = () => {
   const [convertedImages, setConvertedImages] = useState<{ name: string; url: string }[]>([]);
