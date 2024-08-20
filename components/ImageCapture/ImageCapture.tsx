@@ -6,7 +6,7 @@ import { CaptureVisionRouter } from "dynamsoft-capture-vision-router";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Select, MenuItem,FormControl,InputLabel, TextField ,Button} from "@mui/material";
 import { styled } from "@mui/material/styles";
 import * as XLSX from "xlsx";
-import "./imageCapture.css"
+import "./ImageCapture.css"
 
 const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
   marginTop: theme.spacing(2),
