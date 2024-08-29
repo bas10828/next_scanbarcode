@@ -3,7 +3,7 @@ import "../../dynamsoft.config";
 import { EnumCapturedResultItemType } from "dynamsoft-core";
 import { BarcodeResultItem } from "dynamsoft-barcode-reader";
 import { CaptureVisionRouter } from "dynamsoft-capture-vision-router";
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Select, MenuItem,FormControl,InputLabel, TextField ,Button} from "@mui/material";
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Select, MenuItem, FormControl, InputLabel, TextField, Button } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import * as XLSX from "xlsx";
 // import "./ImageCapture.css"
@@ -143,6 +143,21 @@ function ImageCapture() {
         }
 
       }
+    } else if (value === 'tp-link') {
+      console.log("TP-Link")
+      const tpLinkData = barcodeResults[index].barcodeText.join(" "); // ใช้ barcodeText ทั้งหมดรวมกัน
+      const tpLinkSnPattern = /\b22[A-Z0-9]{11}\b/;
+      const tpLinkMacPattern = /\b[A-F0-9]{12}\b/;
+
+      const snMatch = tpLinkData.match(tpLinkSnPattern);
+      sn = snMatch ? snMatch[0] : 'non';
+
+      const macMatches = tpLinkData.match(tpLinkMacPattern);
+      if (macMatches) {
+        const foundMac = macMatches.find(mac => mac.length === 12);
+        mac = foundMac ? formatMacAddress(foundMac) : 'non';
+        mac_ = foundMac || 'non';
+      }
     }
 
     setSerials((prev) => ({ ...prev, [index]: sn }));
@@ -165,10 +180,10 @@ function ImageCapture() {
       MAC: macs[index] || "",
       MAC_: mac_s[index] || ""
     })));
-    
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Barcode Results");
-    
+
     XLSX.writeFile(wb, "barcode_results.xlsx");
   };
 
