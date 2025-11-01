@@ -9,10 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@emotion/react": "^11.13.0",
-    "@emotion/styled": "^11.13.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^5.16.7",
-    "@mui/material": "^5.16.7",
+    "@mui/material": "^5.18.0",
+    "docx": "^9.5.1",
     "dynamsoft-barcode-reader-bundle": "10.2.1000",
     "file-saver": "^2.0.5",
     "heic2any": "^0.0.4",
@@ -20,6 +21,7 @@
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",
+    "read-excel-file": "^6.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

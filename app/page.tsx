@@ -15,10 +15,15 @@ const ImageConvert = dynamic(() => import("../components/convertfile/Imageconver
   ssr: false,
 });
 
+const GenerateReport = dynamic(() => import("../components/GenerateReport/GenerateReport"), {
+  ssr: false,
+});
+
 enum Modes {
   VIDEO_CAPTURE = "video",
   IMAGE_CAPTURE = "image",
   IMAGE_CONVERT = "convert",
+  GENERATE_REPORT = "GenerateReport"
 }
 
 export default function Home() {
@@ -27,6 +32,8 @@ export default function Home() {
   const showVideoCapture = () => setMode(Modes.VIDEO_CAPTURE);
   const showImageCapture = () => setMode(Modes.IMAGE_CAPTURE);
   const showImageConvert = () => setMode(Modes.IMAGE_CONVERT);
+  const showGenerateReport = () => setMode(Modes.GENERATE_REPORT);
+
 
   return (
     <div className="hello-world-page">
@@ -58,11 +65,20 @@ export default function Home() {
         >
           Convert File
         </button>
+        <button
+          style={{
+            backgroundColor: mode === Modes.IMAGE_CAPTURE ? "rgb(255,174,55)" : "white",
+          }}
+          onClick={showGenerateReport}
+        >
+          Generate Report
+        </button>
       </div>
       <div className="container">
         {mode === Modes.VIDEO_CAPTURE && <VideoCapture />}
         {mode === Modes.IMAGE_CAPTURE && <ImageCapture />}
         {mode === Modes.IMAGE_CONVERT && <ImageConvert />}
+        {mode === Modes.GENERATE_REPORT && <GenerateReport />}
       </div>    </div>
   );
 }

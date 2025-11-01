@@ -1,9 +1,29 @@
-import React, { useRef, useEffect, MutableRefObject, useCallback, useState } from "react";
+import React, {
+  useRef,
+  useEffect,
+  MutableRefObject,
+  useCallback,
+  useState,
+} from "react";
 import "../../dynamsoft.config";
 import { EnumCapturedResultItemType } from "dynamsoft-core";
 import { BarcodeResultItem } from "dynamsoft-barcode-reader";
 import { CaptureVisionRouter } from "dynamsoft-capture-vision-router";
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Select, MenuItem, FormControl, InputLabel, TextField, Button } from "@mui/material";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  TextField,
+  Button,
+} from "@mui/material";
 import { styled } from "@mui/material/styles";
 import * as XLSX from "xlsx";
 // import "./ImageCapture.css"
@@ -13,7 +33,7 @@ const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
   maxWidth: "100%",
   marginLeft: "auto",
   marginRight: "auto",
-  overflowX: 'auto',
+  overflowX: "auto",
 }));
 
 const StyledTableHead = styled(TableHead)(({ theme }) => ({
@@ -21,16 +41,16 @@ const StyledTableHead = styled(TableHead)(({ theme }) => ({
 }));
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
-  fontWeight: 'bold',
+  fontWeight: "bold",
   border: `1px solid ${theme.palette.divider}`,
   padding: theme.spacing(1),
 }));
 
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
-  '&:nth-of-type(odd)': {
+  "&:nth-of-type(odd)": {
     backgroundColor: theme.palette.action.hover,
   },
-  '&:nth-of-type(even)': {
+  "&:nth-of-type(even)": {
     backgroundColor: theme.palette.background.default,
   },
 }));
@@ -41,51 +61,71 @@ interface BarcodeResult {
 }
 
 function formatMacAddress(mac: string) {
-  return mac.match(/.{1,2}/g)?.join(":").toUpperCase() || mac;
+  return (
+    mac
+      .match(/.{1,2}/g)
+      ?.join(":")
+      .toUpperCase() || mac
+  );
 }
 
 function ImageCapture() {
   const [barcodeResults, setBarcodeResults] = useState<BarcodeResult[]>([]);
-  const [brandSelections, setBrandSelections] = useState<{ [key: number]: string }>({});
+  const [brandSelections, setBrandSelections] = useState<{
+    [key: number]: string;
+  }>({});
   const [serials, setSerials] = useState<{ [key: number]: string }>({});
   const [macs, setMacs] = useState<{ [key: number]: string }>({});
   const [mac_s, setMac_s] = useState<{ [key: number]: string }>({});
   const [models, setModels] = useState<{ [key: number]: string }>({}); // เพิ่ม State สำหรับ Model
 
-  let pCvRouter: MutableRefObject<Promise<CaptureVisionRouter> | null> = useRef(null);
+  let pCvRouter: MutableRefObject<Promise<CaptureVisionRouter> | null> =
+    useRef(null);
   let isDestroyed = useRef(false);
 
-  const decodeImg = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    let files = [...(e.target.files as any as File[])];
-    e.target.value = "";
-    setBarcodeResults([]);
+  const decodeImg = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      let files = [...(e.target.files as any as File[])];
+      e.target.value = "";
+      setBarcodeResults([]);
 
-    try {
-      const cvRouter = await (pCvRouter.current = pCvRouter.current || CaptureVisionRouter.createInstance());
-      if (isDestroyed.current) return;
-
-      const results: BarcodeResult[] = [];
-      for (let file of files) {
-        const result = await cvRouter.capture(file, "ReadBarcodes_SpeedFirst");
+      try {
+        const cvRouter = await (pCvRouter.current =
+          pCvRouter.current || CaptureVisionRouter.createInstance());
         if (isDestroyed.current) return;
 
-        const barcodes = result.items
-          .filter(item => item.type === EnumCapturedResultItemType.CRIT_BARCODE)
-          .map(item => (item as BarcodeResultItem).text);
+        const results: BarcodeResult[] = [];
+        for (let file of files) {
+          const result = await cvRouter.capture(
+            file,
+            "ReadBarcodes_SpeedFirst"
+          );
+          if (isDestroyed.current) return;
 
-        if (barcodes.length === 0) {
-          results.push({ fileName: file.name, barcodeText: ["No barcode found"] });
-        } else {
-          results.push({ fileName: file.name, barcodeText: barcodes });
+          const barcodes = result.items
+            .filter(
+              (item) => item.type === EnumCapturedResultItemType.CRIT_BARCODE
+            )
+            .map((item) => (item as BarcodeResultItem).text);
+
+          if (barcodes.length === 0) {
+            results.push({
+              fileName: file.name,
+              barcodeText: ["No barcode found"],
+            });
+          } else {
+            results.push({ fileName: file.name, barcodeText: barcodes });
+          }
         }
+        setBarcodeResults(results);
+      } catch (ex: any) {
+        let errMsg = ex.message || ex;
+        console.error(errMsg);
+        alert(errMsg);
       }
-      setBarcodeResults(results);
-    } catch (ex: any) {
-      let errMsg = ex.message || ex;
-      console.error(errMsg);
-      alert(errMsg);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect((): any => {
     isDestroyed.current = false;
@@ -94,7 +134,7 @@ function ImageCapture() {
       if (pCvRouter.current) {
         try {
           (await pCvRouter.current).dispose();
-        } catch (_) { }
+        } catch (_) {}
       }
     };
   }, []);
@@ -107,7 +147,7 @@ function ImageCapture() {
     let mac_ = "";
     let model = ""; // ตัวแปรสำหรับ Model
 
-    if (value === 'unifi') {
+    if (value === "unifi") {
       const ubiquitiData = barcodeResults[index].barcodeText[0]; // ใช้ barcodeText ตัวแรก
       const macPattern = /\b[A-F0-9]{12}\b/;
 
@@ -118,9 +158,10 @@ function ImageCapture() {
         mac = formatMacAddress(first12Chars);
         mac_ = first12Chars;
       }
-    } else if (value === 'reyee') {
+    } else if (value === "reyee") {
       const reyeeData = barcodeResults[index].barcodeText.join(" "); // ใช้ barcodeText ทั้งหมดรวมกัน
-      const urlPattern = /http:\/\/rj\.link\/e\?s=([^&]+)&d=([^&]+)&m=([A-F0-9]{12})/;
+      const urlPattern =
+        /http:\/\/rj\.link\/e\?s=([^&]+)&d=([^&]+)&m=([A-F0-9]{12})/;
       const match = urlPattern.exec(reyeeData);
 
       if (match) {
@@ -133,30 +174,52 @@ function ImageCapture() {
         const macPattern = /\b[A-F0-9]{12}\b/;
 
         const snMatch = reyeeData.match(snPattern);
-        sn = snMatch ? snMatch[0] : 'non';
+        sn = snMatch ? snMatch[0] : "non";
 
         const macMatches = reyeeData.match(macPattern);
         if (macMatches) {
-          const foundMac = macMatches.find(mac => mac.length === 12);
-          mac = foundMac ? formatMacAddress(foundMac) : 'non';
-          mac_ = foundMac || 'non';
+          const foundMac = macMatches.find((mac) => mac.length === 12);
+          mac = foundMac ? formatMacAddress(foundMac) : "non";
+          mac_ = foundMac || "non";
         }
-
       }
-    } else if (value === 'tp-link') {
-      console.log("TP-Link")
+    } else if (value === "tp-link") {
+      console.log("TP-Link");
       const tpLinkData = barcodeResults[index].barcodeText.join(" "); // ใช้ barcodeText ทั้งหมดรวมกัน
       const tpLinkSnPattern = /\b22[A-Z0-9]{11}\b/;
       const tpLinkMacPattern = /\b[A-F0-9]{12}\b/;
 
       const snMatch = tpLinkData.match(tpLinkSnPattern);
-      sn = snMatch ? snMatch[0] : 'non';
+      sn = snMatch ? snMatch[0] : "non";
 
       const macMatches = tpLinkData.match(tpLinkMacPattern);
       if (macMatches) {
-        const foundMac = macMatches.find(mac => mac.length === 12);
-        mac = foundMac ? formatMacAddress(foundMac) : 'non';
-        mac_ = foundMac || 'non';
+        const foundMac = macMatches.find((mac) => mac.length === 12);
+        mac = foundMac ? formatMacAddress(foundMac) : "non";
+        mac_ = foundMac || "non";
+      }
+    } else if (value === "hikvision") {
+      const hikData = barcodeResults[index].barcodeText.join(" ");
+
+      // รูปแบบ 1: www.hik-connect.com AB9349942 DS-2CD1027G2-L 2.8mm
+      const hikPattern1 =
+        /www\.hik-connect\.com\s+([A-Z0-9]+)\s+([A-Z0-9\-]+)/i;
+
+      // รูปแบบ 2: {GS}AB9349942 (ไม่มี model)
+      const hikPattern2 = /\{GS\}([A-Z0-9]+)/i;
+
+      const match1 = hikPattern1.exec(hikData);
+      const match2 = hikPattern2.exec(hikData);
+
+      if (match1) {
+        sn = match1[1]; // ดึง AB9349942
+        model = match1[2]; // ดึง DS-2CD1027G2-L
+      } else if (match2) {
+        sn = match2[1]; // ดึง AB9349942
+        model = ""; // ไม่มี model ก็ใส่ Unknown ไว้
+      } else {
+        sn = "non";
+        model = "non";
       }
     }
 
@@ -171,15 +234,17 @@ function ImageCapture() {
   };
 
   const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(barcodeResults.map((result, index) => ({
-      FileName: result.fileName,
-      BarcodeText: result.barcodeText.join(", "),
-      Brand: brandSelections[index] || "",
-      Serial: serials[index] || "",
-      Model: models[index] || "",
-      MAC: macs[index] || "",
-      MAC_: mac_s[index] || ""
-    })));
+    const ws = XLSX.utils.json_to_sheet(
+      barcodeResults.map((result, index) => ({
+        FileName: result.fileName,
+        BarcodeText: result.barcodeText.join(", "),
+        Brand: brandSelections[index] || "",
+        Serial: serials[index] || "",
+        Model: models[index] || "",
+        MAC: macs[index] || "",
+        MAC_: mac_s[index] || "",
+      }))
+    );
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Barcode Results");
@@ -187,10 +252,44 @@ function ImageCapture() {
     XLSX.writeFile(wb, "barcode_results.xlsx");
   };
 
+  const handleDeleteRow = (index: number) => {
+    setBarcodeResults((prev) => prev.filter((_, i) => i !== index));
+    setBrandSelections((prev) => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+    setSerials((prev) => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+    setMacs((prev) => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+    setMac_s((prev) => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+    setModels((prev) => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+  };
+
   return (
     <div className="image-capture-container">
       <div className="input-container">
-        <input type="file" multiple accept=".jpg,.jpeg,.icon,.gif,.svg,.webp,.png,.bmp" onChange={decodeImg} />
+        <input
+          type="file"
+          multiple
+          accept=".jpg,.jpeg,.icon,.gif,.svg,.webp,.png,.bmp"
+          onChange={decodeImg}
+        />
       </div>
 
       <div className=" ">
@@ -203,6 +302,7 @@ function ImageCapture() {
             <MenuItem value="reyee">Select All Reyee</MenuItem>
             <MenuItem value="unifi">Select All Unifi</MenuItem>
             <MenuItem value="tp-link">Select All TP-Link</MenuItem>
+            <MenuItem value="hikvision">Select All Hikvision</MenuItem>
           </Select>
         </FormControl>
       </div>
@@ -215,16 +315,20 @@ function ImageCapture() {
               <StyledTableCell>Barcode Text</StyledTableCell>
               <StyledTableCell>Brand</StyledTableCell>
               <StyledTableCell>Serial</StyledTableCell>
-              <StyledTableCell>Model</StyledTableCell> {/* เพิ่มคอลัมน์ Model */}
+              <StyledTableCell>Model</StyledTableCell>{" "}
+              {/* เพิ่มคอลัมน์ Model */}
               <StyledTableCell>MAC</StyledTableCell>
               <StyledTableCell>MAC_</StyledTableCell>
+              <StyledTableCell>Delete</StyledTableCell>
             </TableRow>
           </StyledTableHead>
           <TableBody>
             {barcodeResults.map((result, index) => (
               <StyledTableRow key={index}>
                 <StyledTableCell>{result.fileName}</StyledTableCell>
-                <StyledTableCell>{result.barcodeText.join(", ")}</StyledTableCell>
+                <StyledTableCell>
+                  {result.barcodeText.join(", ")}
+                </StyledTableCell>
                 <StyledTableCell>
                   <Select
                     value={brandSelections[index] || ""}
@@ -233,32 +337,35 @@ function ImageCapture() {
                     <MenuItem value="reyee">Reyee</MenuItem>
                     <MenuItem value="unifi">Unifi</MenuItem>
                     <MenuItem value="tp-link">TP-Link</MenuItem>
+                    <MenuItem value="hikvision">Hikvision</MenuItem>
                   </Select>
                 </StyledTableCell>
                 <StyledTableCell>
-                  <div className="table-cell-text">
-                    {serials[index] || ""}
-                  </div>
-                </StyledTableCell>
-                <StyledTableCell> {/* เพิ่มการแสดงผล Model */}
-                  <div className="table-cell-text">
-                    {models[index] || ""}
-                  </div>
+                  <div className="table-cell-text">{serials[index] || ""}</div>
                 </StyledTableCell>
                 <StyledTableCell>
-                  <div className="table-cell-text">
-                    {macs[index] || ""}
-                  </div>
+                  {" "}
+                  {/* เพิ่มการแสดงผล Model */}
+                  <div className="table-cell-text">{models[index] || ""}</div>
                 </StyledTableCell>
                 <StyledTableCell>
-                  <div className="table-cell-text">
-                    {mac_s[index] || ""}
-                  </div>
+                  <div className="table-cell-text">{macs[index] || ""}</div>
+                </StyledTableCell>
+                <StyledTableCell>
+                  <div className="table-cell-text">{mac_s[index] || ""}</div>
+                </StyledTableCell>
+                <StyledTableCell align="center">
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => handleDeleteRow(index)}
+                  >
+                    ลบ
+                  </Button>
                 </StyledTableCell>
               </StyledTableRow>
             ))}
           </TableBody>
-
         </Table>
       </StyledTableContainer>
       <div className="export-container">
