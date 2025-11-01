@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import readXlsxFile from "read-excel-file";
+import readXlsxFile, { Row } from "read-excel-file";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { saveAs } from "file-saver";
 import {
@@ -19,7 +19,7 @@ import {
 } from "@mui/material";
 
 // 🔹 ประกาศ type สำหรับข้อมูล Excel
-type ExcelRow = (string | number | null)[];
+type ExcelRow = (string | number | boolean | Date | null | undefined)[];
 
 // 🔹 Component หลัก
 const Generatereport: React.FC = () => {
@@ -39,11 +39,16 @@ const Generatereport: React.FC = () => {
     }
 
     readXlsxFile(file)
-      .then((rows: ExcelRow[]) => {
+      .then((rows) => {
+        // แปลงค่าที่ไม่ต้องการ เช่น false หรือ DateConstructor ให้เป็น null
+        const normalizedRows = rows.map((r) =>
+          r.map((c) => (c === false || c === Date ? null : c))
+        );
+
         if (fileType === "project") {
-          setProjectData(rows);
+          setProjectData(normalizedRows as ExcelRow[]);
         } else if (fileType === "inventory") {
-          setInventoryData(rows);
+          setInventoryData(normalizedRows as ExcelRow[]);
         }
       })
       .catch((error) => console.error("เกิดข้อผิดพลาดในการอ่านไฟล์:", error));
@@ -439,20 +444,30 @@ const Generatereport: React.FC = () => {
       <Box display="flex" flexDirection={{ xs: "column", sm: "row" }} gap={2}>
         <Box component={Paper} elevation={3} p={2} textAlign="center">
           <Typography variant="h6">Project File</Typography>
-          <Input
+          <input
             type="file"
             accept=".xlsx, .xls"
             onChange={(e) => handleFileUpload(e, "project")}
-            fullWidth
+            style={{
+              width: "100%",
+              padding: "8px",
+              borderRadius: "8px",
+              border: "1px solid #ccc",
+            }}
           />
         </Box>
         <Box component={Paper} elevation={3} p={2} textAlign="center">
           <Typography variant="h6">Inventory File</Typography>
-          <Input
+          <input
             type="file"
             accept=".xlsx, .xls"
             onChange={(e) => handleFileUpload(e, "inventory")}
-            fullWidth
+            style={{
+              width: "100%",
+              padding: "8px",
+              borderRadius: "8px",
+              border: "1px solid #ccc",
+            }}
           />
         </Box>
       </Box>
