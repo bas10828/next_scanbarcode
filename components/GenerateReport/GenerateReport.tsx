@@ -259,6 +259,7 @@ const Generatereport: React.FC = () => {
               ,
               location,
             ]) => {
+              if (!model) return false;
               const type = String(deviceType ?? "")
                 .toLowerCase()
                 .trim();
@@ -268,7 +269,17 @@ const Generatereport: React.FC = () => {
               const currentLoc = String(currentBuilding ?? "")
                 .replace(/\s+/g, "")
                 .toLowerCase();
-              return type.includes("ups") && loc.includes(currentLoc);
+              const modelNormalized = String(model ?? "")
+                .toLowerCase()
+                .replace(/\s+/g, "");
+              const detailNormalized = String(detail ?? "")
+                .toLowerCase()
+                .replace(/\s+/g, "");
+              return (
+                type.includes("ups") &&
+                loc.includes(currentLoc) &&
+                detailNormalized.includes(modelNormalized)
+              );
             }
           );
 
