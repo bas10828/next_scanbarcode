@@ -8,3 +8,13 @@ html, body {
   text-align: center;
   min-width: 350px;
 }
+
+/* ลดเงาและทำให้ modal ดูกลม */
+.crop-modal {
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.reactEasyCrop_Container {
+  background-color: #fafafa !important;
+}
