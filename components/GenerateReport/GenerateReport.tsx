@@ -27,6 +27,9 @@ const Generatereport: React.FC = () => {
   const [inventoryData, setInventoryData] = useState<ExcelRow[]>([]);
   const [report, setReport] = useState<string>("");
 
+  const printedAPBuildings = new Set<string>();
+  const apWithCableBuildings = new Set<string>();
+
   // อ่านไฟล์ Excel
   const handleFileUpload = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -94,45 +97,51 @@ const Generatereport: React.FC = () => {
 
         let foundMatch = false;
 
-        // 🟢 เงื่อนไข: Access Point
-        if (d.toLowerCase().includes("wifi")) {
-          const accessPoints = inventoryData.filter(
-            ([, deviceType, , , , , , , location]) =>
-              deviceType &&
-              String(deviceType).toLowerCase().includes("access point") &&
-              location &&
-              String(location).includes(String(currentBuilding))
-          );
+        const normalize = (s: any) =>
+          String(s ?? "")
+            .toLowerCase()
+            .replace(/\s+/g, "")
+            .replace("rg-", "");
 
-          if (accessPoints.length > 0) {
-            // normalize detail สำหรับ match model
-            let dNormalized = String(d).toLowerCase().replace(/\s+/g, "");
+        // 🟢 เงื่อนไข: Access Point (match ด้วย Location เป็นหลัก)
+        if (
+          (d.includes("access point") || d.includes("wifi")) &&
+          !printedAPBuildings.has(currentBuilding!)
+        ) {
+          const aps = inventoryData
+            .slice(1)
+            .filter(([, deviceType, , , , , , , location]) => {
+              const type = normalize(deviceType);
+              const loc = normalize(location);
+              const building = normalize(currentBuilding);
+              return type.includes("accesspoint") && loc.includes(building);
+            });
+
+          if (aps.length > 0) {
+            foundMatch = true;
+            printedAPBuildings.add(currentBuilding!); // ✅ ล็อกอาคารนี้แล้ว
+
             let subSubItemIndex = 1;
-
-            accessPoints.forEach(
+            aps.forEach(
               ([, , brand, model, serialNumber, , deviceName, , location]) => {
-                if (model) {
-                  const modelNormalized = String(model)
-                    .toLowerCase()
-                    .replace(/\s+/g, "");
-                  if (dNormalized.includes(modelNormalized)) {
-                    foundMatch = true;
-                    reportText += `${
-                      buildingIndex - 1
-                    }.${subItemIndex}.${subSubItemIndex} ติดตั้ง Access Point ${
-                      brand ?? ""
-                    } ${model ?? ""} (${deviceName ?? ""}) S/N: ${
-                      serialNumber ?? ""
-                    }  ${location ?? ""}\n`;
-                    subSubItemIndex++;
-                  }
-                }
+                reportText += `${
+                  buildingIndex - 1
+                }.${subItemIndex}.${subSubItemIndex} ติดตั้ง Access Point ${
+                  brand ?? ""
+                } ${model ?? ""} พร้อมเดินร้อยท่อ PVC สีขาว (${
+                  deviceName ?? ""
+                }) S/N: ${serialNumber ?? ""} ${location ?? ""}\n`;
+
+                subSubItemIndex++;
               }
             );
 
-            // ถ้าเจอ AP อย่างน้อย 1 ตัว → เพิ่ม subItemIndex
-            if (subSubItemIndex > 1) subItemIndex++;
+            subItemIndex++;
           }
+        } // 🟡 งานเดินสาย + ติดตั้ง Access Point → ใช้เป็น description เท่านั้น
+        else if (d.includes("ติดตั้งสาย") && d.includes("access point")) {
+          apWithCableBuildings.add(currentBuilding!);
+          return; // ❌ ไม่แสดงเป็นหัวข้อ
         }
 
         // 🟢 เงื่อนไข: Switch
@@ -379,7 +388,8 @@ const Generatereport: React.FC = () => {
           (d.includes("sfp") && d.includes("module")) ||
           (d.includes("patch") && d.includes("cord")) ||
           (d.includes("rack") && d.includes("mount")) ||
-          d.includes("ระบบไฟฟ้า")
+          d.includes("ระบบไฟฟ้า") ||
+          (d.includes("utp") && d.includes("access point"))
         ) {
           // console.log("ข้ามหัวข้อ:", detail);
           return; // ข้ามแถวนี้

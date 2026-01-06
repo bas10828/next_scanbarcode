@@ -236,7 +236,7 @@ function ImageCapture() {
   const exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(
       barcodeResults.map((result, index) => ({
-        FileName: result.fileName,
+        FileName: removeFileExtension(result.fileName),
         BarcodeText: result.barcodeText.join(", "),
         Brand: brandSelections[index] || "",
         Serial: serials[index] || "",
@@ -280,6 +280,10 @@ function ImageCapture() {
       return updated;
     });
   };
+
+  function removeFileExtension(filename: string) {
+    return filename.replace(/\.[^/.]+$/, "");
+  }
 
   return (
     <div className="image-capture-container">
@@ -325,7 +329,9 @@ function ImageCapture() {
           <TableBody>
             {barcodeResults.map((result, index) => (
               <StyledTableRow key={index}>
-                <StyledTableCell>{result.fileName}</StyledTableCell>
+                <StyledTableCell>
+                  {removeFileExtension(result.fileName)}
+                </StyledTableCell>
                 <StyledTableCell>
                   {result.barcodeText.join(", ")}
                 </StyledTableCell>
