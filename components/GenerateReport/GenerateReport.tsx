@@ -379,6 +379,48 @@ const Generatereport: React.FC = () => {
               }
             );
           }
+        } else if (d.includes("outlet") && (d.includes("lan")||d.includes("โทรศัพท์"))) {
+          foundMatch = true;
+
+          const qty = Number(quantity ?? 1);
+
+          // ❗ ใช้ detail ต้นฉบับในการเช็ค TEL / LAN
+          const raw = String(detail).toLowerCase();
+
+          // ตรวจสอบว่าเป็นโทรศัพท์หรือไม่
+          const isTel =
+            raw.includes("โทรศัพท์") ||
+            raw.includes("เบอร์โทร") ||
+            raw.includes("สำหรับโทรศัพท์") ||
+            raw.includes("tel") ||
+            raw.includes("telephone") ||
+            raw.includes("phone");
+
+          // ตั้งประเภท Outlet
+          // ถ้าเป็นโทรศัพท์ → ใช้คำว่า “สำหรับโทรศัพท์”
+          // ถ้าไม่ใช่ → ใช้ LAN ตามปกติ
+          const outletType = isTel ? "สำหรับโทรศัพท์" : "LAN";
+
+          // ชื่อ Outlet เช่น LAN01
+          const outletLabel = isTel ? "TEL" : "LAN";
+
+          // 🟢 หัวข้อหลัก
+          reportText += `${
+            buildingIndex - 1
+          }.${subItemIndex} ติดตั้งสาย UTP CAT-6 Indoor แบบเหมาจุดรวมของ พร้อมติดตั้ง Outlet ${outletType} (เดินร้อยท่อ PVC สีขาว)\n`;
+
+          // 🟢 แตกหัวข้อย่อย
+          let subSubItemIndex = 1;
+          for (let i = 0; i < qty; i++) {
+            reportText += `${
+              buildingIndex - 1
+            }.${subItemIndex}.${subSubItemIndex} ติดตั้ง Outlet ${outletType} (${outletLabel}${
+              i + 1
+            })\n`;
+            subSubItemIndex++;
+          }
+
+          subItemIndex++;
         }
 
         // ✅ ข้ามหัวข้อที่มีคำเหล่านี้
@@ -389,7 +431,8 @@ const Generatereport: React.FC = () => {
           (d.includes("patch") && d.includes("cord")) ||
           (d.includes("rack") && d.includes("mount")) ||
           d.includes("ระบบไฟฟ้า") ||
-          (d.includes("utp") && d.includes("access point"))
+          (d.includes("utp") && d.includes("access point")) ||
+          (d.includes("รางไฟ") && d.includes("outlet"))
         ) {
           // console.log("ข้ามหัวข้อ:", detail);
           return; // ข้ามแถวนี้
