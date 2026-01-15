@@ -74,18 +74,29 @@ const Generatereport: React.FC = () => {
     let buildingIndex = 1;
     let subItemIndex = 1;
 
-    projectData.forEach((row) => {
+    projectData.forEach((row, index) => {
       const [no, detail, quantity, unit] = row;
 
-      if (no === "ลำดับ" || no === "ลำดับที่") return;
+      // 1. ข้าม Header
+      if (no === "ลำดับ" || no === "ลำดับที่" || !detail) return;
 
-      // ถ้ามีเลขลำดับ → แสดงว่าเป็นหัวข้ออาคาร
-      if (no && detail) {
-        currentBuilding = String(detail);
+      // 2. DEBUG: ดูว่าแต่ละแถวถูกมองว่าเป็นอะไร
+      console.log(`Row [${index}] check:`, {
+        no,
+        detail,
+        unit,
+        type: typeof no,
+      });
+
+      // 3. เช็คว่าเป็นหัวข้อตึก (เงื่อนไข: มีเลขลำดับในช่อง no)
+      // เราใช้ Number(no) เพื่อเช็คว่ามันเป็นตัวเลข 1, 2, 3 หรือไม่
+      if (no !== null && no !== "" && !isNaN(Number(no))) {
+        console.log("🟢 Changing Building to:", detail);
+        currentBuilding = String(detail).trim();
         reportText += `\n${no}. ${currentBuilding}\n`;
-        buildingIndex++;
-        subItemIndex = 1;
-        return;
+        buildingIndex = Number(no) + 1;
+        subItemIndex = 1; // รีเซ็ตลำดับย่อยเมื่อขึ้นตึกใหม่
+        return; // จบบรรทัดนี้ ไม่ต้องไปเช็คอุปกรณ์ข้างล่าง
       }
 
       // ถ้าเป็นรายการย่อย (ไม่มีเลขลำดับ แต่มีรายละเอียด)
@@ -94,6 +105,7 @@ const Generatereport: React.FC = () => {
         //   ? `จำนวน: ${quantity} ${unit}`
         //   : "จำนวน: ไม่ระบุ";
         const d = String(detail).toLowerCase().replace(/\s+/g, " ");
+        console.log(`Checking Item [${index}]:`, d);
 
         let foundMatch = false;
 
@@ -103,24 +115,37 @@ const Generatereport: React.FC = () => {
             .replace(/\s+/g, "")
             .replace("rg-", "");
 
-        // 🟢 เงื่อนไข: Access Point (match ด้วย Location เป็นหลัก)
+        // 🟢 เงื่อนไข: Access Point (ล็อคตึก + แยกตามรุ่น)
         if (
-          (d.includes("access point") || d.includes("wifi")) &&
-          !printedAPBuildings.has(currentBuilding!)
+          d.includes("access point") ||
+          d.includes("accesspoint") ||
+          d.includes("wifi")
         ) {
+          const dNormalized = String(d).toLowerCase().replace(/\s+/g, "");
+          const buildingNorm = normalize(currentBuilding);
+
+          console.log("👉 Matched: [ACCESS POINT] Condition");
+
           const aps = inventoryData
             .slice(1)
-            .filter(([, deviceType, , , , , , , location]) => {
+            .filter(([, deviceType, , model, , , , , location]) => {
+              if (!model) return false;
               const type = normalize(deviceType);
               const loc = normalize(location);
-              const building = normalize(currentBuilding);
-              return type.includes("accesspoint") && loc.includes(building);
+              const modelNorm = normalize(model);
+
+              // ✅ เงื่อนไข 1: เป็น Access Point
+              // ✅ เงื่อนไข 2: อยู่ในตึกที่กำลังทำรายงาน (ล็อคตึก)
+              // ✅ เงื่อนไข 3: ชื่อรุ่นใน Inventory ต้องมีอยู่ในรายละเอียดของบรรทัดนั้นๆ (ล็อครุ่น)
+              return (
+                type.includes("accesspoint") &&
+                loc.includes(buildingNorm) &&
+                dNormalized.includes(modelNorm)
+              );
             });
 
           if (aps.length > 0) {
             foundMatch = true;
-            printedAPBuildings.add(currentBuilding!); // ✅ ล็อกอาคารนี้แล้ว
-
             let subSubItemIndex = 1;
             aps.forEach(
               ([, , brand, model, serialNumber, , deviceName, , location]) => {
@@ -131,60 +156,131 @@ const Generatereport: React.FC = () => {
                 } ${model ?? ""} พร้อมเดินร้อยท่อ PVC สีขาว (${
                   deviceName ?? ""
                 }) S/N: ${serialNumber ?? ""} ${location ?? ""}\n`;
-
                 subSubItemIndex++;
               }
             );
-
             subItemIndex++;
           }
-        } // 🟡 งานเดินสาย + ติดตั้ง Access Point → ใช้เป็น description เท่านั้น
+        }
+
+        // 🟡 งานเดินสาย + ติดตั้ง Access Point → ใช้เป็น description เท่านั้น
         else if (d.includes("ติดตั้งสาย") && d.includes("access point")) {
           apWithCableBuildings.add(currentBuilding!);
           return; // ❌ ไม่แสดงเป็นหัวข้อ
         }
 
-        // 🟢 เงื่อนไข: Switch
-        else if (d.includes("switch")) {
-          // ดึง switch ใน location ของ currentBuilding
-          // console.log("detail sw", d);
-          const switches = inventoryData.filter(
-            ([, deviceType, , , , , , , location]) =>
-              deviceType &&
-              String(deviceType).toLowerCase().includes("switch") &&
-              location &&
-              String(location).includes(String(currentBuilding))
+        // 🟢 เงื่อนไข: Controller (OC200, OC220, OC300)
+        else if (
+          (d.includes("controller") ||
+            d.includes("oc200") ||
+            d.includes("oc220") ||
+            d.includes("oc300")) &&
+          !d.includes("switch") && // ❌ ต้องไม่มีคำว่า switch
+          !d.includes("access point") && // ❌ ต้องไม่มีคำว่า access point
+          !d.includes("router") // ❌ ต้องไม่มีคำว่า router
+        ) {
+          const dNormalized = String(d).toLowerCase().replace(/\s+/g, "");
+
+          console.log("👉 Matched: [CONTROLLER] Condition");
+
+          const controllers = inventoryData.filter(
+            ([, deviceType, , model, , , , , location]) => {
+              if (!model) return false;
+              const type = normalize(deviceType);
+              const loc = normalize(location);
+              const building = normalize(currentBuilding);
+              const modelNorm = normalize(model);
+
+              // เช็คว่าเป็น Controller + อยู่ตึกเดียวกัน + Model ตรงกับใน Project Detail
+              return (
+                (type.includes("controller") || type.includes("omada")) &&
+                loc.includes(building) &&
+                dNormalized.includes(modelNorm)
+              );
+            }
           );
 
-          if (switches.length > 0) {
-            // ปรับ d ให้ normalize (lowercase + ลบช่องว่างส่วนเกิน)
-            const dNormalized = String(d).toLowerCase().replace(/\s+/g, "");
-
-            let subSubItemIndex = 1; // สำหรับ 3.1.1, 3.1.2
-            switches.forEach(
+          if (controllers.length > 0) {
+            foundMatch = true;
+            controllers.forEach(
               ([, , brand, model, serialNumber, , deviceName, , location]) => {
-                if (model) {
-                  // normalize model ด้วย
-                  const modelNormalized = String(model)
-                    .toLowerCase()
-                    .replace(/\s+/g, "");
-                  if (dNormalized.includes(modelNormalized)) {
-                    foundMatch = true;
-                    reportText += `${
-                      buildingIndex - 1
-                    }.${subItemIndex}.${subSubItemIndex} ติดตั้ง Switch ${
-                      brand ?? ""
-                    } ${model ?? ""} (${deviceName ?? ""}) S/N: ${
-                      serialNumber ?? ""
-                    }  ${location ?? ""}\n`;
-                    subSubItemIndex++;
-                  }
-                }
+                reportText += `${
+                  buildingIndex - 1
+                }.${subItemIndex} ติดตั้งอุปกรณ์บริหารจัดการระบบเครือข่าย (Controller) ${
+                  brand ?? ""
+                } ${model ?? ""} (${deviceName ?? ""}) S/N: ${
+                  serialNumber ?? ""
+                } ${location ?? ""}\n`;
+                subItemIndex++;
               }
             );
+          }
+        }
 
-            // ถ้าเจอ switch ตรง model อย่างน้อย 1 ตัว ให้เพิ่ม subItemIndex
-            if (subSubItemIndex > 1) subItemIndex++;
+        // 🟢 เงื่อนไข: Switch
+        else if (d.includes("switch")) {
+          const dNormalized = String(d).toLowerCase().replace(/\s+/g, "");
+          const buildingNorm = normalize(currentBuilding);
+
+          console.log("👉 Matched: [SWITCH] Condition");
+
+          // LOG เพื่อเช็คว่าตอนนี้โปรแกรมมองว่าเราอยู่ตึกไหน และกำลังเทียบกับข้อความอะไร
+          console.log("--- Checking Switch ---");
+          console.log("Current Building Value:", currentBuilding);
+          console.log("Building Normalized:", buildingNorm);
+          console.log("Project Detail Normalized:", dNormalized);
+
+          const switches = inventoryData.slice(1).filter((row) => {
+            const [
+              no,
+              deviceType,
+              brand,
+              model,
+              serial,
+              mac,
+              name,
+              ip,
+              location,
+            ] = row;
+            if (!model) return false;
+
+            const typeNorm = normalize(deviceType);
+            const locNorm = normalize(location);
+            const modelNorm = normalize(model);
+
+            const matchType = typeNorm.includes("switch");
+            const matchLoc = locNorm.includes(buildingNorm);
+            const matchModel = dNormalized.includes(modelNorm);
+
+            // LOG ทุกตัวใน Inventory ที่เป็น Switch เพื่อดูว่าติดเงื่อนไขไหน
+            if (matchType) {
+              console.log(`Checking Inv Row [${model}]:`, {
+                "1.Type Match": matchType,
+                "2.Location Match": matchLoc, // <--- ถ้าตัวนี้ False แสดงว่าปัญหาอยู่ที่ชื่อตึก
+                "3.Model Match": matchModel,
+                Values: { locNorm, buildingNorm, modelNorm },
+              });
+            }
+
+            return matchType && matchLoc && matchModel;
+          });
+
+          if (switches.length > 0) {
+            foundMatch = true;
+            let subSubItemIndex = 1;
+            switches.forEach(
+              ([, , brand, model, serialNumber, , deviceName, , location]) => {
+                reportText += `${
+                  buildingIndex - 1
+                }.${subItemIndex}.${subSubItemIndex} ติดตั้ง Switch ${
+                  brand ?? ""
+                } ${model ?? ""} (${deviceName ?? ""}) S/N: ${
+                  serialNumber ?? ""
+                } ${location ?? ""}\n`;
+                subSubItemIndex++;
+              }
+            );
+            subItemIndex++;
           }
         }
 
@@ -215,47 +311,56 @@ const Generatereport: React.FC = () => {
           }
         }
 
-        // 🟢 เงื่อนไข: Router / MikroTik
-        else if (d.includes("router") || d.includes("mikrotik")) {
+        // 🟢 เงื่อนไข: Router (ทำงานเหมือน Switch)
+        else if (d.includes("router")) {
+          // ดึง router เฉพาะอาคารปัจจุบัน
           const routers = inventoryData.filter(
-            ([, deviceType, , model, serialNumber, , deviceName, , location]) =>
+            ([, deviceType, , , , , , , location]) =>
               deviceType &&
-              ["router", "mikrotik"].includes(
-                String(deviceType).toLowerCase()
-              ) &&
+              String(deviceType).toLowerCase().includes("router") &&
               location &&
               String(location).includes(String(currentBuilding))
           );
 
           if (routers.length > 0) {
-            foundMatch = true;
+            // normalize รายละเอียดเหมือน Switch
+            const dNormalized = String(d).toLowerCase().replace(/\s+/g, "");
+
+            let subSubItemIndex = 1;
+
             routers.forEach(
-              ([
-                ,
-                deviceType,
-                brand,
-                model,
-                serialNumber,
-                ,
-                deviceName,
-                ,
-                location,
-              ]) => {
-                reportText += `${
-                  buildingIndex - 1
-                }.${subItemIndex} ติดตั้ง ${deviceType} ${brand ?? ""} ${
-                  model ?? ""
-                } (${deviceName ?? ""}) S/N: ${serialNumber ?? ""}  ${
-                  location ?? ""
-                }\n`;
-                subItemIndex++;
+              ([, , brand, model, serialNumber, , deviceName, , location]) => {
+                if (model) {
+                  const modelNormalized = String(model)
+                    .toLowerCase()
+                    .replace(/\s+/g, "");
+
+                  // ⭐ match “model” เหมือน Switch
+                  if (dNormalized.includes(modelNormalized)) {
+                    foundMatch = true;
+
+                    reportText += `${
+                      buildingIndex - 1
+                    }.${subItemIndex}.${subSubItemIndex} ติดตั้ง Router ${
+                      brand ?? ""
+                    } ${model ?? ""} (${deviceName ?? ""}) S/N: ${
+                      serialNumber ?? ""
+                    } ${location ?? ""}\n`;
+
+                    subSubItemIndex++;
+                  }
+                }
               }
             );
+
+            // มี match -> เพิ่มลำดับ
+            if (subSubItemIndex > 1) subItemIndex++;
           }
         }
 
         // 🟢 เงื่อนไข: UPS
         else if (d.toLowerCase().includes("ups")) {
+          console.log("👉 Matched: [UPS] Condition");
           const upsList = inventoryData.filter(
             ([
               ,
@@ -379,7 +484,14 @@ const Generatereport: React.FC = () => {
               }
             );
           }
-        } else if (d.includes("outlet") && (d.includes("lan")||d.includes("โทรศัพท์"))) {
+        } 
+        
+        
+        else if (
+          d.includes("outlet") &&
+          (d.includes("lan") || d.includes("โทรศัพท์"))
+        ) {
+          console.log("👉 Matched: [OUTLET] Condition");
           foundMatch = true;
 
           const qty = Number(quantity ?? 1);
@@ -435,6 +547,7 @@ const Generatereport: React.FC = () => {
           (d.includes("รางไฟ") && d.includes("outlet"))
         ) {
           // console.log("ข้ามหัวข้อ:", detail);
+          console.log("👉 Matched: [SKIP] Condition (Ignored Item)");
           return; // ข้ามแถวนี้
         }
 
