@@ -98,13 +98,13 @@ function ImageCapture() {
         for (let file of files) {
           const result = await cvRouter.capture(
             file,
-            "ReadBarcodes_SpeedFirst"
+            "ReadBarcodes_SpeedFirst",
           );
           if (isDestroyed.current) return;
 
           const barcodes = result.items
             .filter(
-              (item) => item.type === EnumCapturedResultItemType.CRIT_BARCODE
+              (item) => item.type === EnumCapturedResultItemType.CRIT_BARCODE,
             )
             .map((item) => (item as BarcodeResultItem).text);
 
@@ -124,7 +124,7 @@ function ImageCapture() {
         alert(errMsg);
       }
     },
-    []
+    [],
   );
 
   useEffect((): any => {
@@ -221,6 +221,54 @@ function ImageCapture() {
         sn = "non";
         model = "non";
       }
+    } else if (value === "unv") {
+      // ดึงค่า Barcode ออกมาทั้งหมดแล้วตัดช่องว่างหัวท้าย
+      const unvData = barcodeResults[index].barcodeText.join("").trim();
+
+      if (unvData) {
+        sn = unvData; // เอาเลขที่สแกนได้ (เช่น 210235C5A4Q244008018) ใส่ช่อง Serial เลย
+        model = "non"; // ใน Barcode นี้ไม่มีข้อมูล Model
+        mac = "non"; // ใน Barcode นี้ไม่มีข้อมูล Mac Address
+        mac_ = "non";
+      } else {
+        sn = "non";
+        model = "non";
+      }
+    } else if (value === "yealink") {
+      const yealinkData = barcodeResults[index].barcodeText.join(" ");
+
+      // 1. Pattern สำหรับ Serial Number (16 หลัก)
+      const snPattern = /\b[A-Z0-9]{16}\b/;
+
+      // 2. Pattern สำหรับ MAC Address (12 หลัก Hex)
+      // ใส่ flag 'g' (global) เพื่อให้หาทุกตัวที่เข้าข่าย (ทั้ง MAC จริง และเลขคุรุภัณฑ์)
+      const macPattern = /\b[A-F0-9]{12}\b/g;
+
+      // --- เริ่มค้นหา ---
+
+      // ค้นหา Serial Number
+      const snMatch = yealinkData.match(snPattern);
+      sn = snMatch ? snMatch[0] : "non";
+
+      // ค้นหา MAC Address
+      const macMatches = yealinkData.match(macPattern);
+
+      if (macMatches) {
+        // *** จุดสำคัญ: กรองเลขคุรุภัณฑ์/EAN Code ออก ***
+        // ค้นหาตัวที่ไม่ใช่ "841885104823"
+        const foundMac = macMatches.find((m) => m !== "841885104823");
+
+        if (foundMac) {
+          mac = formatMacAddress(foundMac);
+          mac_ = foundMac;
+        } else {
+          mac = "non";
+          mac_ = "non";
+        }
+      } else {
+        mac = "non";
+        mac_ = "non";
+      }
     }
 
     setSerials((prev) => ({ ...prev, [index]: sn }));
@@ -243,7 +291,7 @@ function ImageCapture() {
         Model: models[index] || "",
         MAC: macs[index] || "",
         MAC_: mac_s[index] || "",
-      }))
+      })),
     );
 
     const wb = XLSX.utils.book_new();
@@ -307,6 +355,8 @@ function ImageCapture() {
             <MenuItem value="unifi">Select All Unifi</MenuItem>
             <MenuItem value="tp-link">Select All TP-Link</MenuItem>
             <MenuItem value="hikvision">Select All Hikvision</MenuItem>
+            <MenuItem value="unv">Select All UNV</MenuItem>
+            <MenuItem value="yealink">Select All Yealink</MenuItem>
           </Select>
         </FormControl>
       </div>
@@ -344,6 +394,8 @@ function ImageCapture() {
                     <MenuItem value="unifi">Unifi</MenuItem>
                     <MenuItem value="tp-link">TP-Link</MenuItem>
                     <MenuItem value="hikvision">Hikvision</MenuItem>
+                    <MenuItem value="unv">UNV</MenuItem>
+                    <MenuItem value="yealink">Yealink</MenuItem>
                   </Select>
                 </StyledTableCell>
                 <StyledTableCell>

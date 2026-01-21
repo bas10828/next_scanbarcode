@@ -33,7 +33,7 @@ const Generatereport: React.FC = () => {
   // อ่านไฟล์ Excel
   const handleFileUpload = (
     event: React.ChangeEvent<HTMLInputElement>,
-    fileType: "project" | "inventory"
+    fileType: "project" | "inventory",
   ) => {
     const file = event.target.files?.[0];
     if (!file || !file.name.endsWith(".xlsx")) {
@@ -45,7 +45,7 @@ const Generatereport: React.FC = () => {
       .then((rows) => {
         // แปลงค่าที่ไม่ต้องการ เช่น false หรือ DateConstructor ให้เป็น null
         const normalizedRows = rows.map((r) =>
-          r.map((c) => (c === false || c === Date ? null : c))
+          r.map((c) => (c === false || c === Date ? null : c)),
         );
 
         if (fileType === "project") {
@@ -119,6 +119,8 @@ const Generatereport: React.FC = () => {
         if (
           d.includes("access point") ||
           d.includes("accesspoint") ||
+          d.includes("acess point") ||
+          d.includes("acesspoint") ||
           d.includes("wifi")
         ) {
           const dNormalized = String(d).toLowerCase().replace(/\s+/g, "");
@@ -157,7 +159,7 @@ const Generatereport: React.FC = () => {
                   deviceName ?? ""
                 }) S/N: ${serialNumber ?? ""} ${location ?? ""}\n`;
                 subSubItemIndex++;
-              }
+              },
             );
             subItemIndex++;
           }
@@ -197,7 +199,7 @@ const Generatereport: React.FC = () => {
                 loc.includes(building) &&
                 dNormalized.includes(modelNorm)
               );
-            }
+            },
           );
 
           if (controllers.length > 0) {
@@ -212,7 +214,7 @@ const Generatereport: React.FC = () => {
                   serialNumber ?? ""
                 } ${location ?? ""}\n`;
                 subItemIndex++;
-              }
+              },
             );
           }
         }
@@ -278,7 +280,88 @@ const Generatereport: React.FC = () => {
                   serialNumber ?? ""
                 } ${location ?? ""}\n`;
                 subSubItemIndex++;
+              },
+            );
+            subItemIndex++;
+          }
+        }
+
+        // 🟢 เงื่อนไข: IP Phone
+        else if (
+          d.includes("ip phone") ||
+          d.includes("ipphone") ||
+          d.includes("telephone")
+        ) {
+          const dNormalized = String(d).toLowerCase().replace(/\s+/g, "");
+          const buildingNorm = normalize(currentBuilding);
+
+          console.log("👉 Matched: [IP PHONE] Condition");
+
+          // LOG Debug แบบเดียวกับ Switch
+          console.log("--- Checking IP Phone ---");
+          console.log("Current Building Value:", currentBuilding);
+          console.log("Building Normalized:", buildingNorm);
+          console.log("Project Detail Normalized:", dNormalized);
+
+          const phones = inventoryData.slice(1).filter((row) => {
+            const [
+              no,
+              deviceType,
+              brand,
+              model,
+              serial,
+              mac,
+              name,
+              ip,
+              location,
+            ] = row;
+
+            if (!model) return false;
+
+            const typeNorm = normalize(deviceType);
+            const locNorm = normalize(location);
+            const modelNorm = normalize(model);
+
+            // 1. เช็คประเภทอุปกรณ์ (ครอบคลุมทั้ง IP Phone และ Telephone)
+            const matchType =
+              typeNorm.includes("phone") ||
+              typeNorm.includes("ipphone") ||
+              typeNorm.includes("telephone");
+
+            // 2. เช็คสถานที่ (ตึก)
+            const matchLoc = locNorm.includes(buildingNorm);
+
+            // 3. เช็ครุ่น (ข้อความใน Project ต้องมีชื่อรุ่นระบุอยู่)
+            const matchModel = dNormalized.includes(modelNorm);
+
+            // LOG Debug รายตัว (ถ้าต้องการดูละเอียด ให้ Uncomment)
+            /*
+              if (matchType) {
+                 console.log(`Checking Phone [${model}]:`, {
+                    MatchType: matchType,
+                    MatchLoc: matchLoc,
+                    MatchModel: matchModel
+                 });
               }
+              */
+
+            return matchType && matchLoc && matchModel;
+          });
+
+          if (phones.length > 0) {
+            foundMatch = true;
+            let subSubItemIndex = 1;
+            phones.forEach(
+              ([, , brand, model, serialNumber, , deviceName, , location]) => {
+                reportText += `${
+                  buildingIndex - 1
+                }.${subItemIndex}.${subSubItemIndex} ติดตั้งเครื่องโทรศัพท์ IP Phone ${
+                  brand ?? ""
+                } ${model ?? ""} (${deviceName ?? ""}) S/N: ${
+                  serialNumber ?? ""
+                } ${location ?? ""}\n`;
+                subSubItemIndex++;
+              },
             );
             subItemIndex++;
           }
@@ -291,7 +374,7 @@ const Generatereport: React.FC = () => {
               deviceType &&
               String(deviceType).toLowerCase() === "stabilizer" &&
               location &&
-              String(location).includes(String(currentBuilding))
+              String(location).includes(String(currentBuilding)),
           );
 
           if (stabilizers.length > 0) {
@@ -306,7 +389,7 @@ const Generatereport: React.FC = () => {
                   location ?? ""
                 }\n`;
                 subItemIndex++;
-              }
+              },
             );
           }
         }
@@ -319,7 +402,7 @@ const Generatereport: React.FC = () => {
               deviceType &&
               String(deviceType).toLowerCase().includes("router") &&
               location &&
-              String(location).includes(String(currentBuilding))
+              String(location).includes(String(currentBuilding)),
           );
 
           if (routers.length > 0) {
@@ -350,7 +433,7 @@ const Generatereport: React.FC = () => {
                     subSubItemIndex++;
                   }
                 }
-              }
+              },
             );
 
             // มี match -> เพิ่มลำดับ
@@ -394,7 +477,7 @@ const Generatereport: React.FC = () => {
                 loc.includes(currentLoc) &&
                 detailNormalized.includes(modelNormalized)
               );
-            }
+            },
           );
 
           if (upsList.length > 0) {
@@ -407,7 +490,7 @@ const Generatereport: React.FC = () => {
                   deviceName ?? ""
                 }) S/N: ${serialNumber ?? ""} ${location ?? ""}\n`;
                 subItemIndex++;
-              }
+              },
             );
           }
         }
@@ -422,7 +505,7 @@ const Generatereport: React.FC = () => {
               deviceType &&
               String(deviceType).toLowerCase().includes("ip camera") &&
               location &&
-              String(location).includes(String(currentBuilding))
+              String(location).includes(String(currentBuilding)),
           );
 
           if (ipCameras.length > 0) {
@@ -438,7 +521,7 @@ const Generatereport: React.FC = () => {
                   serialNumber ?? ""
                 } ${location ?? ""}\n`;
                 subSubItemIndex++;
-              }
+              },
             );
             subItemIndex++;
           }
@@ -466,7 +549,7 @@ const Generatereport: React.FC = () => {
                 .replace(/\s+/g, "")
                 .toLowerCase();
               return type.includes("nvr") && loc.includes(currentLoc);
-            }
+            },
           );
 
           if (nvrs.length > 0) {
@@ -481,13 +564,10 @@ const Generatereport: React.FC = () => {
                   location ?? ""
                 }\n`;
                 subItemIndex++;
-              }
+              },
             );
           }
-        } 
-        
-        
-        else if (
+        } else if (
           d.includes("outlet") &&
           (d.includes("lan") || d.includes("โทรศัพท์"))
         ) {
@@ -590,7 +670,7 @@ const Generatereport: React.FC = () => {
                   }),
                 ],
                 spacing: { before: 200, after: 200 },
-              })
+              }),
           ),
         },
       ],
@@ -600,7 +680,7 @@ const Generatereport: React.FC = () => {
       const blob = await Packer.toBlob(doc);
       saveAs(
         blob,
-        `รายงานโครงการ_${new Date().toISOString().slice(0, 10)}.docx`
+        `รายงานโครงการ_${new Date().toISOString().slice(0, 10)}.docx`,
       );
     } catch (error) {
       console.error("Error exporting Word file:", error);
