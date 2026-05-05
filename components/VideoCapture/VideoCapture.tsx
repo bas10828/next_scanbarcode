@@ -1,100 +1,78 @@
-import React, { useEffect, useRef } from "react";
-import "../../dynamsoft.config"; // import side effects. The license, engineResourcePath, so on.
+import React, { useEffect, useRef, useState } from "react";
+import "../../dynamsoft.config";
 import { CameraEnhancer, CameraView } from "dynamsoft-camera-enhancer";
 import { CaptureVisionRouter } from "dynamsoft-capture-vision-router";
 import { MultiFrameResultCrossFilter } from "dynamsoft-utility";
 import "./VideoCapture.css";
+import { Box, Stack, Typography, Paper, Chip } from "@mui/material";
+import QrCodeIcon from "@mui/icons-material/QrCode";
 
 const componentDestroyedErrorMsg = "VideoCapture Component Destroyed";
 
+type ScanResult = { format: string; text: string };
+
 function VideoCapture() {
   const cameraViewContainer = useRef<HTMLDivElement>(null);
-  const resultsContainer = useRef<HTMLDivElement>(null);
+  const [results, setResults] = useState<ScanResult[]>([]);
 
   useEffect((): any => {
     let resolveInit: () => void;
-    const pInit: Promise<void> = new Promise((r) => {
-      resolveInit = r;
-    });
+    const pInit: Promise<void> = new Promise((r) => { resolveInit = r; });
     let isDestroyed = false;
-
     let cvRouter: CaptureVisionRouter;
     let cameraEnhancer: CameraEnhancer;
 
     (async () => {
       try {
-        // Create a `CameraEnhancer` instance for camera control and a `CameraView` instance for UI control.
         const cameraView = await CameraView.createInstance();
-        if (isDestroyed) {
-          throw Error(componentDestroyedErrorMsg);
-        } // Check if component is destroyed after every async
+        if (isDestroyed) throw Error(componentDestroyedErrorMsg);
         cameraEnhancer = await CameraEnhancer.createInstance(cameraView);
-        if (isDestroyed) {
-          throw Error(componentDestroyedErrorMsg);
-        }
+        if (isDestroyed) throw Error(componentDestroyedErrorMsg);
 
-        // Get default UI and append it to DOM.
         cameraViewContainer.current!.append(cameraView.getUIElement());
 
-        // Create a `CaptureVisionRouter` instance and set `CameraEnhancer` instance as its image source.
         cvRouter = await CaptureVisionRouter.createInstance();
-        if (isDestroyed) {
-          throw Error(componentDestroyedErrorMsg);
-        }
+        if (isDestroyed) throw Error(componentDestroyedErrorMsg);
         cvRouter.setInput(cameraEnhancer);
 
-        // Define a callback for results.
         cvRouter.addResultReceiver({
           onDecodedBarcodesReceived: (result) => {
             if (!result.barcodeResultItems.length) return;
-
-            resultsContainer.current!.textContent = "";
-            console.log(result);
-            for (let item of result.barcodeResultItems) {
-              resultsContainer.current!.textContent += `${item.formatString}: ${item.text}\n\n`;
-            }
+            setResults(
+              result.barcodeResultItems.map((item) => ({
+                format: item.formatString,
+                text: item.text,
+              })),
+            );
           },
         });
 
-        // Filter out unchecked and duplicate results.
         const filter = new MultiFrameResultCrossFilter();
-        // Filter out unchecked barcodes.
         filter.enableResultCrossVerification("barcode", true);
-        // Filter out duplicate barcodes within 3 seconds.
         filter.enableResultDeduplication("barcode", true);
         await cvRouter.addResultFilter(filter);
-        if (isDestroyed) {
-          throw Error(componentDestroyedErrorMsg);
-        }
+        if (isDestroyed) throw Error(componentDestroyedErrorMsg);
 
-        // Open camera and start scanning single barcode.
         await cameraEnhancer.open();
-        if (isDestroyed) {
-          throw Error(componentDestroyedErrorMsg);
-        }
+        if (isDestroyed) throw Error(componentDestroyedErrorMsg);
         await cvRouter.startCapturing("ReadSingleBarcode");
-        if (isDestroyed) {
-          throw Error(componentDestroyedErrorMsg);
-        }
+        if (isDestroyed) throw Error(componentDestroyedErrorMsg);
       } catch (ex: any) {
         if ((ex as Error)?.message === componentDestroyedErrorMsg) {
           console.log(componentDestroyedErrorMsg);
         } else {
-          let errMsg = ex.message || ex;
+          const errMsg = ex.message || ex;
           console.error(errMsg);
           alert(errMsg);
         }
       }
     })();
 
-    // Resolve pInit promise once initialization is complete.
     resolveInit!();
 
-    // componentWillUnmount. dispose cvRouter when it's no longer needed
     return async () => {
       isDestroyed = true;
       try {
-        // Wait for the pInit to complete before disposing resources.
         await pInit;
         cvRouter?.dispose();
         cameraEnhancer?.dispose();
@@ -103,12 +81,68 @@ function VideoCapture() {
   }, []);
 
   return (
-    <div>
-      <div ref={cameraViewContainer} className="camera-view-container"></div>
-      <br />
-      Results:
-      <div ref={resultsContainer} className="results"></div>
-    </div>
+    <Stack spacing={2}>
+      <div ref={cameraViewContainer} className="camera-view-container" />
+
+      {results.length > 0 ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            bgcolor: "#fff7ed",
+            borderColor: "#fed7aa",
+            borderRadius: 2,
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+            <QrCodeIcon sx={{ fontSize: 18, color: "primary.main" }} />
+            <Typography variant="caption" fontWeight={700} color="primary.main">
+              ผลการสแกนล่าสุด
+            </Typography>
+          </Box>
+          <Stack spacing={0.75}>
+            {results.map((r, i) => (
+              <Box key={i} display="flex" alignItems="center" gap={1.5}>
+                <Chip
+                  label={r.format}
+                  size="small"
+                  sx={{
+                    fontSize: "0.68rem",
+                    height: 20,
+                    bgcolor: "#fed7aa",
+                    color: "#9a3412",
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                />
+                <Typography
+                  variant="body2"
+                  fontFamily="monospace"
+                  sx={{ wordBreak: "break-all", color: "#7c2d12" }}
+                >
+                  {r.text}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        </Paper>
+      ) : (
+        <Box
+          sx={{
+            p: 2,
+            bgcolor: "#f8fafc",
+            border: "1px dashed",
+            borderColor: "grey.300",
+            borderRadius: 2,
+            textAlign: "center",
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" fontStyle="italic">
+            ผลการ scan จะแสดงที่นี่ — เปิดกล้องแล้วชี้ไปที่ barcode/QR
+          </Typography>
+        </Box>
+      )}
+    </Stack>
   );
 }
 

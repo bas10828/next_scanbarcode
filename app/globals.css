@@ -1,20 +1,57 @@
+/* Global resets + smooth defaults. MUI ThemeProvider in app/page.tsx
+   handles colors/typography for components — this file just establishes
+   the baseline page chrome. */
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-html, body {
-  text-align: center;
+html,
+body {
   min-width: 350px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #f5f7fa;
+  color: #111827;
 }
 
-/* ลดเงาและทำให้ modal ดูกลม */
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Comfortable scrollbars on Windows/Chromium */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f3f5;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Smooth crop modal (used by ImageCropper) */
 .crop-modal {
   max-height: 90vh;
   overflow: hidden;
+  border-radius: 12px;
 }
 
 .reactEasyCrop_Container {
   background-color: #fafafa !important;
+}
+
+/* Subtle focus ring across native inputs/buttons — accessibility win */
+:focus-visible {
+  outline: 2px solid #f57c00;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
