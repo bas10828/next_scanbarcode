@@ -14,9 +14,11 @@ import {
   Typography,
   LinearProgress,
   Chip,
+  Tooltip,
 } from "@mui/material";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import UndoIcon from "@mui/icons-material/Undo";
 import * as XLSX from "xlsx";
 import {
   StyledTableCell,
@@ -67,6 +69,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
   autoApplyBrand,
 }) => {
   const [rows, setRows] = useState<Record<number, RowData>>({});
+  const [undoStack, setUndoStack] = useState<{ result: BarcodeResult; rowData: RowData; index: number }[]>([]);
   const autoAppliedRef = useRef<BarcodeResult[] | null>(null);
 
   const applyBrand = useCallback(
@@ -98,22 +101,54 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
   };
 
   const handleDeleteRow = (index: number) => {
+    setUndoStack((prev) => [
+      ...prev,
+      { result: results[index], rowData: rows[index] ?? EMPTY_ROW, index },
+    ]);
     setResults((prev) => prev.filter((_, i) => i !== index));
     setRows((prev) => {
-      const next = { ...prev };
-      delete next[index];
+      const next: Record<number, RowData> = {};
+      Object.entries(prev).forEach(([key, val]) => {
+        const k = Number(key);
+        if (k < index) next[k] = val;
+        else if (k > index) next[k - 1] = val;
+      });
       return next;
+    });
+  };
+
+  const handleUndo = () => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const { result, rowData, index } = prev[prev.length - 1];
+      setResults((r) => {
+        const next = [...r];
+        next.splice(index, 0, result);
+        return next;
+      });
+      setRows((r) => {
+        const next: Record<number, RowData> = {};
+        Object.entries(r).forEach(([key, val]) => {
+          const k = Number(key);
+          next[k >= index ? k + 1 : k] = val;
+        });
+        next[index] = rowData;
+        return next;
+      });
+      return prev.slice(0, -1);
     });
   };
 
   const handleClearAll = () => {
     setResults([]);
     setRows({});
+    setUndoStack([]);
     autoAppliedRef.current = null;
   };
 
   const handleFiles = async (files: File[]) => {
     setRows({});
+    setUndoStack([]);
     autoAppliedRef.current = null;
     await decode(files);
   };
@@ -257,6 +292,42 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
           <Typography color="text.secondary" variant="body2">
             ยังไม่มีผลการ scan — อัปโหลดภาพด้านบนเพื่อเริ่มต้น
           </Typography>
+        </Box>
+      )}
+
+      {undoStack.length > 0 && (
+        <Box
+          sx={{
+            position: "sticky",
+            bottom: 16,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            bgcolor: "warning.50",
+            border: "1px solid",
+            borderColor: "warning.200",
+            borderRadius: 2,
+            px: 2,
+            py: 1.5,
+            boxShadow: "0 4px 12px rgba(15,23,42,0.12)",
+            zIndex: 10,
+          }}
+        >
+          <UndoIcon fontSize="small" color="warning" />
+          <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
+            ลบไป {undoStack.length} แถว — ย้อนกลับได้
+          </Typography>
+          <Tooltip title={`คืน "${removeFileExtension(undoStack[undoStack.length - 1].result.fileName)}" กลับ`}>
+            <Button
+              variant="contained"
+              color="warning"
+              size="small"
+              onClick={handleUndo}
+              startIcon={<UndoIcon />}
+            >
+              Undo
+            </Button>
+          </Tooltip>
         </Box>
       )}
     </Stack>
