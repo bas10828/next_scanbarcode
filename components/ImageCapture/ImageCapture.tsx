@@ -11,6 +11,7 @@ function ImageCapture() {
       hint="Dynamsoft High-Accuracy mode — รองรับ QR + 1D barcode (Code128, EAN, ฯลฯ)"
       busyLabel="Dynamsoft High-Accuracy"
       exportFileName="barcode_results.xlsx"
+      autoApplyBrand="auto"
     />
   );
 }

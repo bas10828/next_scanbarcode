@@ -80,6 +80,10 @@ function VideoCapture() {
     };
   }, []);
 
+  const cleanlineSN = results
+    .map((r) => r.text.match(/LCL\d{6,}/)?.[0])
+    .find(Boolean) ?? null;
+
   return (
     <Stack spacing={2}>
       <div ref={cameraViewContainer} className="camera-view-container" />
@@ -100,6 +104,30 @@ function VideoCapture() {
               ผลการสแกนล่าสุด
             </Typography>
           </Box>
+          {cleanlineSN && (
+            <Box
+              sx={{
+                mb: 1.5,
+                px: 1.5,
+                py: 0.75,
+                bgcolor: "#dcfce7",
+                borderRadius: 1,
+                border: "1px solid #bbf7d0",
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+              }}
+            >
+              <Chip
+                label="Cleanline SN"
+                size="small"
+                sx={{ fontSize: "0.68rem", height: 20, bgcolor: "#16a34a", color: "#fff", fontWeight: 600 }}
+              />
+              <Typography variant="body2" fontFamily="monospace" fontWeight={700} color="#15803d">
+                {cleanlineSN}
+              </Typography>
+            </Box>
+          )}
           <Stack spacing={0.75}>
             {results.map((r, i) => (
               <Box key={i} display="flex" alignItems="center" gap={1.5}>
