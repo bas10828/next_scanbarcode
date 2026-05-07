@@ -26,4 +26,10 @@ export const StyledTableRow = styled(TableRow)(({ theme }) => ({
   "&:nth-of-type(even)": {
     backgroundColor: theme.palette.background.default,
   },
+  // Hover overlay — stacks on top of any background-color (normal, duplicate, selected)
+  // without replacing it. backgroundImage renders above backgroundColor in CSS.
+  "&:hover > td, &:hover > th": {
+    backgroundImage: "linear-gradient(rgba(0,0,0,0.07), rgba(0,0,0,0.07))",
+    cursor: "default",
+  },
 }));

@@ -18,7 +18,8 @@ export type Brand =
   | "yealink"
   | "mikrotik"
   | "dahua"
-  | "cleanline";
+  | "cleanline"
+  | "cisco";
 
 const EMPTY: ParsedBarcode = { serial: "", mac: "non", mac_: "", model: "" };
 
@@ -31,12 +32,11 @@ const formatMacAddress = (mac: string): string =>
 const parseUnifi = (barcodes: string[]): ParsedBarcode => {
   const data = barcodes[0] ?? "";
   const macPattern = /\b[A-F0-9]{12}\b/;
-  const serial = data.substring(0, 19);
   const first12 = data.substring(0, 12);
   if (macPattern.test(first12)) {
-    return { serial, mac: formatMacAddress(first12), mac_: first12, model: "" };
+    return { serial: first12, mac: formatMacAddress(first12), mac_: first12, model: "" };
   }
-  return { ...EMPTY, serial };
+  return { ...EMPTY, serial: data.substring(0, 19) };
 };
 
 const parseReyee = (barcodes: string[]): ParsedBarcode => {
@@ -188,8 +188,8 @@ const parseDahua = (barcodes: string[]): ParsedBarcode => {
 // No network interface → MAC is always N/A.
 const parseCleanline = (barcodes: string[]): ParsedBarcode => {
   const data = barcodes.join(" ").toUpperCase();
-  // Allow 6-9 trailing digits for SN-format variation across Cleanline models.
-  const snMatch = data.match(/\bLCL\d{6,9}\b/);
+  // LCL prefix + 6 or more digits; no upper limit to handle future model variations.
+  const snMatch = data.match(/LCL\d{6,}/);
   return {
     serial: snMatch ? snMatch[0] : "non",
     mac: "non",
@@ -214,6 +214,33 @@ const parseMikrotik = (barcodes: string[]): ParsedBarcode => {
   };
 };
 
+// Cisco labels typically carry 3 barcodes:
+//   - 1D barcode: PID/model, format "<2digits>-<5digits>-<2digits> <variant>" e.g. "74-12075-03 C0"
+//   - 1D barcode: SN, format 3 uppercase letters (MFR code) + 6 digits + 2 alphanum e.g. "DNI210803Z9"
+//   - 1D barcode: MAC, raw 12 hex chars e.g. "C4B9CD2FE557"
+// Cisco labels carry 2 scannable barcodes:
+//   - 1D barcode: SN, format 3 letters (MFR code) + 6 digits + 2 alphanum e.g. "DNI210803Z9"
+//   - 1D barcode: MAC, raw 12 hex chars e.g. "C4B9CD2FE557"
+// (PID/model such as "74-12075-03 C0" is printed text only — not in a barcode)
+const parseCisco = (barcodes: string[]): ParsedBarcode => {
+  const data = barcodes.join(" ").toUpperCase();
+
+  // SN: 3 uppercase letters (manufacturer code) + 6 digits + 2 alphanumeric = 11 chars
+  const snMatch = data.match(/\b[A-Z]{3}\d{6}[A-Z0-9]{2}\b/);
+  const serial = snMatch ? snMatch[0] : "non";
+
+  // MAC: 12 hex chars — prefer the candidate with ≥2 A-F letters (real MAC, not SN fragment)
+  const macCandidates = data.match(/[A-F0-9]{12}/g) ?? [];
+  const realMac = macCandidates.find((m) => (m.match(/[A-F]/g) ?? []).length >= 2);
+
+  return {
+    serial,
+    mac: realMac ? formatMacAddress(realMac) : "non",
+    mac_: realMac ?? "",
+    model: "",
+  };
+};
+
 const PARSERS: Record<Brand, (barcodes: string[]) => ParsedBarcode> = {
   auto: parseAuto,
   unifi: parseUnifi,
@@ -226,10 +253,38 @@ const PARSERS: Record<Brand, (barcodes: string[]) => ParsedBarcode> = {
   mikrotik: parseMikrotik,
   dahua: parseDahua,
   cleanline: parseCleanline,
+  cisco: parseCisco,
 };
 
 export const parseBarcode = (brand: Brand, barcodes: string[]): ParsedBarcode =>
   PARSERS[brand](barcodes);
+
+// Detect brand from scanned barcode content. Returns the most specific match,
+// or "auto" when no brand-specific pattern is found.
+// Ordered from most-specific (URL/unique prefix) to least-specific (length-based).
+export const detectBrand = (barcodes: string[]): Brand => {
+  const data = barcodes.join(" ").toUpperCase();
+
+  // URL-based — virtually zero false-positive risk
+  if (/RJ\.LINK\//.test(data)) return "reyee";
+  if (/HIK-CONNECT\.COM/.test(data) || /\{GS\}[A-Z0-9]/.test(data)) return "hikvision";
+  if (/MT\.LV\//.test(data)) return "mikrotik";
+
+  // Unique SN prefix / format patterns
+  if (/LCL\d{6,}/.test(data)) return "cleanline";
+  if (/\b[A-Z]{3}\d{6}[A-Z0-9]{2}\b/.test(data)) return "cisco";
+  if (/\b(?:CA|G1|ZA|AH)[A-Z0-9]{11}\b/.test(data)) return "reyee";
+  if (/\b22[A-Z0-9]{11,13}\b/.test(data)) return "tp-link";
+
+  // SN length-based (checked after all prefix patterns to avoid early exits)
+  if (/\b[A-Z0-9]{16}\b/.test(data)) return "yealink";  // Yealink SN = 16 chars
+  if (/\b[A-Z0-9]{15}\b/.test(data)) return "dahua";    // Dahua SN  = 15 chars
+
+  // Unifi: first barcode starts with a 12-hex MAC (may have a short suffix like "-w5LLbT")
+  if (/^[0-9A-F]{12}/.test(barcodes[0]?.toUpperCase() ?? "")) return "unifi";
+
+  return "auto";
+};
 
 export const BRAND_OPTIONS: { value: Brand; label: string }[] = [
   { value: "auto", label: "Auto-Detect" },
@@ -243,4 +298,5 @@ export const BRAND_OPTIONS: { value: Brand; label: string }[] = [
   { value: "mikrotik", label: "Mikrotik" },
   { value: "dahua", label: "Dahua" },
   { value: "cleanline", label: "Cleanline" },
+  { value: "cisco", label: "Cisco" },
 ];

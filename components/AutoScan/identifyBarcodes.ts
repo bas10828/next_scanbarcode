@@ -77,6 +77,9 @@ const scoreSerial = (s: string): number => {
   if (trimmed.length >= 8 && trimmed.length <= 20) score += 20;
   // Bonus: starts with digits (common SN convention).
   if (/^\d/.test(trimmed)) score += 5;
+  // Known SN prefix patterns — prevents TISI QR or other noise from outscoring real SNs.
+  if (/^LCL\d{6,}/.test(trimmed)) score += 50; // Cleanline UPS
+  if (/^[A-Z]{3}\d{6}[A-Z0-9]{2}$/.test(trimmed)) score += 50; // Cisco (e.g. DNI210803Z9)
   return score;
 };
 
