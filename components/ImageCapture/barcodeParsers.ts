@@ -31,6 +31,20 @@ const formatMacAddress = (mac: string): string =>
 
 const parseUnifi = (barcodes: string[]): ParsedBarcode => {
   const data = barcodes[0] ?? "";
+
+  // URL format: https://qr.ui.com/[model]/[type]/[MAC12][...] (e.g. U7 Lite)
+  // SN = MAC (Unifi convention) — trailing chars after MAC12 are not the SN.
+  const urlMatch = /qr\.ui\.com\/[^/]+\/[^/]+\/([A-F0-9]{12})/i.exec(data);
+  if (urlMatch) {
+    const mac12 = urlMatch[1].toUpperCase();
+    return {
+      serial: mac12,
+      mac: formatMacAddress(mac12),
+      mac_: mac12,
+      model: "",
+    };
+  }
+
   const macPattern = /\b[A-F0-9]{12}\b/;
   const first12 = data.substring(0, 12);
   if (macPattern.test(first12)) {
@@ -269,6 +283,7 @@ export const detectBrand = (barcodes: string[]): Brand => {
   if (/RJ\.LINK\//.test(data)) return "reyee";
   if (/HIK-CONNECT\.COM/.test(data) || /\{GS\}[A-Z0-9]/.test(data)) return "hikvision";
   if (/MT\.LV\//.test(data)) return "mikrotik";
+  if (/QR\.UI\.COM\//.test(data)) return "unifi";
 
   // Unique SN prefix / format patterns
   if (/LCL\d{6,}/.test(data)) return "cleanline";
