@@ -17,3 +17,11 @@ export type MatcherOutcome =
   | null;
 
 export type Matcher = (ctx: MatcherContext) => MatcherOutcome;
+
+export type ReportImage = {
+  dataUrl: string;
+  b64: string;
+  w: number;
+  h: number;
+  name: string;
+};
