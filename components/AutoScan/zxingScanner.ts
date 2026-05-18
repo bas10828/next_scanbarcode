@@ -1,66 +1,52 @@
-// Decode every barcode (1D + 2D) in a single image using ZXing.
+// Barcode decoder backed by zxing-wasm (C++ ZXing compiled to WebAssembly).
 //
-// ZXing's MultiFormatReader returns ONE result per call. To find multiple
-// barcodes per image we run multiple "passes", each with mask-and-retry:
-//   Pass 1: original image + HybridBinarizer             (handles most cases)
-//   Pass 2: color-inverted image + HybridBinarizer        (white-on-dark labels)
-//   Pass 3: contrast-enhanced image + HybridBinarizer     (faded/low-contrast prints, e.g. Unifi plastic labels)
-//   Pass 4: original image + GlobalHistogramBinarizer     (fallback if previous passes found little)
-//   Pass 5: tiled inverted (4 overlapping quadrants)      (small white-on-dark 1D barcodes, e.g. TP-Link Omada)
-//   Pass 6: tiled original                                (small dark-on-light 1D barcodes)
+// Multi-pass strategy (each pass only runs when found.size < 2 after the previous):
+//   Pass 1: original file → zxing-wasm (tryHarder/Rotate/Invert/Downscale)
+//   Pass 2: contrast(200%) → zxing-wasm  (mild boost for slightly-low-contrast labels)
+//   Pass 3: contrast(300%) → zxing-wasm  (moderate boost)
+//   Pass 4: contrast(400%) → zxing-wasm  (binarises silver labels: bars 80→5, bg 185→255)
+//   Pass 5: sharpen + contrast(400%) → zxing-wasm  (blurry shots: recovers merged bar edges)
+//   Pass 6: 4x4 tiled sharpen+contrast(400%) → zxing-wasm  (small barcodes + low contrast)
 //
-// Each pass clones the base canvas so masks from prior passes don't leak into later ones.
-// Tiled passes split the image into 4 overlapping quadrants — small barcodes that get
-// drowned out in a large photo gain relative size in each tile, making them findable.
-// Format-aware mask padding: 1D barcodes only have 2 result points (start/end of one
-// scan line), so the mask Y is sized from the inter-point distance, not just the points.
+// Math: CSS contrast(X%) maps pixel p → 127 + (p - 127) × X/100, clamped to [0,255].
+// Silver background ≈ 185 grey. Dark barcode bars ≈ 80 grey.
+//   contrast(250%): bars → 39 (still grey!)
+//   contrast(400%): bars → 5, silver → 255 — true binarisation of the label.
+//
+// WASM file is served from /wasm/zxing_reader.wasm (copied from node_modules at install time).
 
 import {
-  BarcodeFormat,
-  BinaryBitmap,
-  DecodeHintType,
-  GlobalHistogramBinarizer,
-  HybridBinarizer,
-  MultiFormatReader,
-  type Result,
-} from "@zxing/library";
-import { HTMLCanvasElementLuminanceSource } from "@zxing/browser";
+  readBarcodesFromImageFile,
+  readBarcodesFromImageData,
+  setZXingModuleOverrides,
+  type ReaderOptions,
+  type ReadResult,
+} from "zxing-wasm/reader";
 
-const FORMATS: BarcodeFormat[] = [
-  BarcodeFormat.QR_CODE,
-  BarcodeFormat.CODE_128,
-  BarcodeFormat.CODE_39,
-  BarcodeFormat.CODE_93,
-  BarcodeFormat.EAN_13,
-  BarcodeFormat.EAN_8,
-  BarcodeFormat.UPC_A,
-  BarcodeFormat.UPC_E,
-  BarcodeFormat.ITF,
-  BarcodeFormat.DATA_MATRIX,
-  BarcodeFormat.PDF_417,
-  BarcodeFormat.AZTEC,
-];
+setZXingModuleOverrides({
+  locateFile: () => "/wasm/zxing_reader.wasm",
+});
 
-const ONE_D_FORMATS = new Set<BarcodeFormat>([
-  BarcodeFormat.CODE_128,
-  BarcodeFormat.CODE_39,
-  BarcodeFormat.CODE_93,
-  BarcodeFormat.EAN_13,
-  BarcodeFormat.EAN_8,
-  BarcodeFormat.UPC_A,
-  BarcodeFormat.UPC_E,
-  BarcodeFormat.ITF,
-]);
-
-const MAX_BARCODES_PER_PASS = 8;
-
-type BinarizerKind = "hybrid" | "global";
-
-const buildHints = (): Map<DecodeHintType, unknown> => {
-  const hints = new Map<DecodeHintType, unknown>();
-  hints.set(DecodeHintType.TRY_HARDER, true);
-  hints.set(DecodeHintType.POSSIBLE_FORMATS, FORMATS);
-  return hints;
+const READER_OPTIONS: ReaderOptions = {
+  tryHarder: true,
+  tryRotate: true,
+  tryInvert: true,
+  tryDownscale: true,
+  maxNumberOfSymbols: 10,
+  formats: [
+    "QRCode",
+    "Code128",
+    "Code39",
+    "Code93",
+    "EAN13",
+    "EAN8",
+    "UPCA",
+    "UPCE",
+    "ITF",
+    "DataMatrix",
+    "PDF417",
+    "Aztec",
+  ],
 };
 
 const loadImage = (file: File): Promise<HTMLImageElement> =>
@@ -73,192 +59,150 @@ const loadImage = (file: File): Promise<HTMLImageElement> =>
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error(`Failed to load image: ${file.name}`));
+      reject(new Error(`Failed to load: ${file.name}`));
     };
     img.src = url;
   });
 
-const cloneCanvas = (src: HTMLCanvasElement): HTMLCanvasElement => {
+const imageToCanvas = (img: HTMLImageElement): HTMLCanvasElement => {
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  canvas.getContext("2d")!.drawImage(img, 0, 0);
+  return canvas;
+};
+
+const applyContrastFilter = (src: HTMLCanvasElement, contrast: number): HTMLCanvasElement => {
   const dst = document.createElement("canvas");
   dst.width = src.width;
   dst.height = src.height;
-  const ctx = dst.getContext("2d");
-  if (ctx) ctx.drawImage(src, 0, 0);
-  return dst;
-};
-
-const invertCanvas = (canvas: HTMLCanvasElement): void => {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = 255 - data[i];
-    data[i + 1] = 255 - data[i + 1];
-    data[i + 2] = 255 - data[i + 2];
-  }
-  ctx.putImageData(imageData, 0, 0);
-};
-
-// Boost contrast + slight brightness lift via canvas filter — applied during a redraw
-// so subsequent reads see crisper edges. Helps QR/barcode prints on plastic
-// (e.g. Unifi APs) where the ink fades or has low contrast vs background.
-const enhanceContrast = (src: HTMLCanvasElement): HTMLCanvasElement => {
-  const dst = document.createElement("canvas");
-  dst.width = src.width;
-  dst.height = src.height;
-  const ctx = dst.getContext("2d");
-  if (!ctx) return src;
-  ctx.filter = "contrast(150%) brightness(105%) saturate(0%)";
+  const ctx = dst.getContext("2d")!;
+  ctx.filter = `contrast(${contrast}%) saturate(0%)`;
   ctx.drawImage(src, 0, 0);
   return dst;
 };
 
-type MaskBox = { minX: number; maxX: number; minY: number; maxY: number };
-
-const getMaskBox = (
-  result: Result,
-  width: number,
-  height: number,
-): MaskBox | null => {
-  const points = result.getResultPoints();
-  if (!points || points.length < 2) return null;
-  const xs = points.map((p) => p.getX());
-  const ys = points.map((p) => p.getY());
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-
-  const isOneD = ONE_D_FORMATS.has(result.getBarcodeFormat());
-  let padX = 30;
-  let padY = 30;
-  if (isOneD) {
-    // 1D result points sit on a single horizontal scan line in the middle of the
-    // barcode. Use inter-point distance to estimate the bar height (~25% of width).
-    const dist = Math.hypot(maxX - minX, maxY - minY);
-    padY = Math.max(50, dist * 0.25);
-    padX = Math.max(30, dist * 0.05);
-  }
-  return {
-    minX: Math.max(0, minX - padX),
-    maxX: Math.min(width, maxX + padX),
-    minY: Math.max(0, minY - padY),
-    maxY: Math.min(height, maxY + padY),
-  };
-};
-
-const buildBitmap = (
-  canvas: HTMLCanvasElement,
-  binarizer: BinarizerKind,
-): BinaryBitmap => {
-  const luminance = new HTMLCanvasElementLuminanceSource(canvas);
-  const bin =
-    binarizer === "hybrid"
-      ? new HybridBinarizer(luminance)
-      : new GlobalHistogramBinarizer(luminance);
-  return new BinaryBitmap(bin);
-};
-
-const runPass = (
-  canvas: HTMLCanvasElement,
-  binarizer: BinarizerKind,
-  found: Set<string>,
-): void => {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const hints = buildHints();
-  const reader = new MultiFormatReader();
-  reader.setHints(hints);
-
-  for (let i = 0; i < MAX_BARCODES_PER_PASS; i++) {
-    let result: Result;
-    try {
-      result = reader.decode(buildBitmap(canvas, binarizer), hints);
-    } catch {
-      break; // NotFoundException — done with this pass.
+// Unsharp mask (3×3 Laplacian sharpening) applied in-place to greyscale ImageData.
+// Recovers slightly-blurred barcode bar edges so the binarizer can separate bars from background.
+// Kernel: center×(1+amount) − neighbours×(amount/4), clamped to [0,255].
+const sharpenImageData = (imageData: ImageData, amount: number = 1.0): void => {
+  const { data, width, height } = imageData;
+  const orig = new Uint8ClampedArray(data);
+  const w4 = width * 4;
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const i = (y * width + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        const neighbours =
+          orig[(i - w4) + c] +
+          orig[(i + w4) + c] +
+          orig[i - 4 + c] +
+          orig[i + 4 + c];
+        data[i + c] = Math.max(
+          0,
+          Math.min(255, Math.round((1 + amount) * orig[i + c] - (amount / 4) * neighbours)),
+        );
+      }
     }
-    const text = result.getText().trim();
-    if (text) found.add(text);
-    const box = getMaskBox(result, canvas.width, canvas.height);
-    if (!box || box.maxX <= box.minX || box.maxY <= box.minY) break;
-    ctx.fillStyle = "#888888";
-    ctx.fillRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
-    reader.reset();
   }
 };
 
-// Split into 2x2 grid with 30% overlap (each tile = 65% of original on each axis).
-// A barcode straddling a quadrant boundary still appears whole in at least one tile.
-// Small barcodes (e.g. TP-Link Omada SN/MAC, ~5% of image width) gain ~50% relative
-// size in a tile, lifting them above ZXing's localization noise floor.
-const runTiledPass = (
+const getImageData = (canvas: HTMLCanvasElement): ImageData =>
+  canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height);
+
+const getSharpenedImageData = (canvas: HTMLCanvasElement, amount: number = 1.0): ImageData => {
+  const id = getImageData(canvas);
+  sharpenImageData(id, amount);
+  return id;
+};
+
+const addFound = (found: Set<string>, results: ReadResult[]): void => {
+  for (const r of results) {
+    const t = r.text.trim();
+    if (t) found.add(t);
+  }
+};
+
+// Run zxing-wasm on NxN overlapping tiles of a canvas.
+// N=4 → 40% tile size — lifts a 6%-wide barcode to ~15% of tile, crossing ZXing's noise floor.
+const runTiledZxing = async (
   base: HTMLCanvasElement,
-  binarizer: BinarizerKind,
   found: Set<string>,
-  invert: boolean,
-): void => {
+  gridN: number,
+  sharpen: boolean = false,
+): Promise<void> => {
   const overlap = 0.3;
-  const tileW = Math.floor(base.width * (0.5 + overlap / 2));
-  const tileH = Math.floor(base.height * (0.5 + overlap / 2));
-  const startX = base.width - tileW;
-  const startY = base.height - tileH;
-  const positions: Array<[number, number]> = [
-    [0, 0],
-    [startX, 0],
-    [0, startY],
-    [startX, startY],
-  ];
-  for (const [x, y] of positions) {
-    const tile = document.createElement("canvas");
-    tile.width = tileW;
-    tile.height = tileH;
-    const tileCtx = tile.getContext("2d");
-    if (!tileCtx) continue;
-    tileCtx.drawImage(base, x, y, tileW, tileH, 0, 0, tileW, tileH);
-    if (invert) invertCanvas(tile);
-    runPass(tile, binarizer, found);
+  const tileW = Math.floor(base.width * (1 / gridN + overlap / 2));
+  const tileH = Math.floor(base.height * (1 / gridN + overlap / 2));
+
+  for (let row = 0; row < gridN; row++) {
+    const y =
+      gridN === 1
+        ? 0
+        : Math.floor((row * (base.height - tileH)) / (gridN - 1));
+    for (let col = 0; col < gridN; col++) {
+      const x =
+        gridN === 1
+          ? 0
+          : Math.floor((col * (base.width - tileW)) / (gridN - 1));
+
+      const tile = document.createElement("canvas");
+      tile.width = tileW;
+      tile.height = tileH;
+      const ctx = tile.getContext("2d");
+      if (!ctx) continue;
+      ctx.drawImage(base, x, y, tileW, tileH, 0, 0, tileW, tileH);
+
+      const id = sharpen ? getSharpenedImageData(tile) : getImageData(tile);
+      addFound(found, await readBarcodesFromImageData(id, READER_OPTIONS));
+    }
   }
 };
 
 export const decodeAllBarcodes = async (file: File): Promise<string[]> => {
-  const img = await loadImage(file);
-  const base = document.createElement("canvas");
-  base.width = img.naturalWidth;
-  base.height = img.naturalHeight;
-  const baseCtx = base.getContext("2d");
-  if (!baseCtx) return [];
-  baseCtx.drawImage(img, 0, 0);
-
   const found = new Set<string>();
 
-  // Pass 1: original orientation, HybridBinarizer (best for typical photos).
-  runPass(cloneCanvas(base), "hybrid", found);
+  // Pass 1: original — zxing-wasm handles scale/rotation/invert natively.
+  addFound(found, await readBarcodesFromImageFile(file, READER_OPTIONS));
 
-  // Pass 2: inverted (white-on-dark device labels like TP-Link Omada).
-  const inverted = cloneCanvas(base);
-  invertCanvas(inverted);
-  runPass(inverted, "hybrid", found);
-
-  // Pass 3: contrast-enhanced (faded plastic prints, e.g. Unifi APs).
-  runPass(enhanceContrast(base), "hybrid", found);
-
-  // Pass 4: GlobalHistogramBinarizer fallback if previous passes found little.
   if (found.size < 2) {
-    runPass(cloneCanvas(base), "global", found);
+    const img = await loadImage(file);
+    const isLarge = Math.min(img.naturalWidth, img.naturalHeight) >= 1200;
+
+    if (isLarge) {
+      const base = imageToCanvas(img);
+
+      // Passes 2-4: escalating contrast levels for silver/metallic labels.
+      for (const contrast of [200, 300, 400]) {
+        if (found.size >= 2) break;
+        addFound(
+          found,
+          await readBarcodesFromImageData(
+            getImageData(applyContrastFilter(base, contrast)),
+            READER_OPTIONS,
+          ),
+        );
+      }
+
+      if (found.size < 2) {
+        // Pass 5: sharpened + contrast(400%) — recovers blurry barcode bar edges.
+        addFound(
+          found,
+          await readBarcodesFromImageData(
+            getSharpenedImageData(applyContrastFilter(base, 400)),
+            READER_OPTIONS,
+          ),
+        );
+      }
+
+      if (found.size < 2) {
+        // Pass 6: 4×4 tiled sharpened+contrast(400%) — small barcodes + low contrast.
+        await runTiledZxing(applyContrastFilter(base, 400), found, 4, true);
+      }
+    }
   }
 
-  // Tiled passes — only run on large enough images and only if we still seem to be
-  // missing barcodes. Each tiled pass is ~4x the cost of a normal pass.
-  const isLargeImage = Math.min(base.width, base.height) >= 1200;
-  if (isLargeImage && found.size < 3) {
-    // Tiled inverted — small white-on-dark 1D barcodes (TP-Link Omada SN/MAC).
-    runTiledPass(base, "hybrid", found, true);
-  }
-  if (isLargeImage && found.size < 3) {
-    // Tiled original — small dark-on-light 1D barcodes (e.g. Dahua label barcodes).
-    runTiledPass(base, "hybrid", found, false);
-  }
-
-  return Array.from(found);
+  const out: string[] = [];
+  found.forEach((t) => out.push(t));
+  return out;
 };
