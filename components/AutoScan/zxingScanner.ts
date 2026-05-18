@@ -2,16 +2,18 @@
 //
 // Multi-pass strategy (each pass only runs when found.size < 2 after the previous):
 //   Pass 1: original file → zxing-wasm (tryHarder/Rotate/Invert/Downscale)
-//   Pass 2: contrast(200%) → zxing-wasm  (mild boost for slightly-low-contrast labels)
-//   Pass 3: contrast(300%) → zxing-wasm  (moderate boost)
-//   Pass 4: contrast(400%) → zxing-wasm  (binarises silver labels: bars 80→5, bg 185→255)
-//   Pass 5: sharpen + contrast(400%) → zxing-wasm  (blurry shots: recovers merged bar edges)
-//   Pass 6: 4x4 tiled sharpen+contrast(400%) → zxing-wasm  (small barcodes + low contrast)
+//   Pass 2-4: contrast(200/300/400%) — matte labels, bars~80 grey → 5, silver~185 → 255
+//   Pass 5: contrast(800%)           — metallic labels where bars photograph at ~110 grey
+//   Pass 6: contrast(10000%)         — binary threshold at midgrey: p<128→0, p>128→255
+//   Pass 7: sharpen + contrast(400%) — blurry shots, recovers merged bar edges
+//   Pass 8: 4×4 tiled sharpen+contrast(400%) — small barcodes, standard contrast
+//   Pass 9: 4×4 tiled + contrast(10000%)     — small barcodes on silver/metallic labels
 //
-// Math: CSS contrast(X%) maps pixel p → 127 + (p - 127) × X/100, clamped to [0,255].
-// Silver background ≈ 185 grey. Dark barcode bars ≈ 80 grey.
-//   contrast(250%): bars → 39 (still grey!)
-//   contrast(400%): bars → 5, silver → 255 — true binarisation of the label.
+// Math: CSS contrast(X%) maps pixel p → 127 + (p - 127) × X/100, clamped [0,255].
+// TP-Link Omada silver labels: bars photograph at ~110-120 grey (metallic substrate
+// absorbs less light than matte paper), so contrast(400%) leaves them at ~71-99 grey.
+//   contrast(800%):   bars(110)→31, silver(185)→255
+//   contrast(10000%): bars(110)→0,  silver(185)→255  — true binary threshold
 //
 // WASM file is served from /wasm/zxing_reader.wasm (copied from node_modules at install time).
 
@@ -167,38 +169,31 @@ export const decodeAllBarcodes = async (file: File): Promise<string[]> => {
 
   if (found.size < 2) {
     const img = await loadImage(file);
-    const isLarge = Math.min(img.naturalWidth, img.naturalHeight) >= 1200;
+    const base = imageToCanvas(img);
 
-    if (isLarge) {
-      const base = imageToCanvas(img);
+    // Passes 2-6: escalating contrast. 200-400% for matte labels, 800% and 10000%
+    // for silver/metallic labels (TP-Link Omada) where bars photograph at ~110-120 grey.
+    // contrast(10000%) acts as a binary threshold: anything < 128 → black, > 128 → white.
+    for (const contrast of [200, 300, 400, 800, 10000]) {
+      if (found.size >= 2) break;
+      addFound(found, await readBarcodesFromImageData(
+        getImageData(applyContrastFilter(base, contrast)), READER_OPTIONS));
+    }
 
-      // Passes 2-4: escalating contrast levels for silver/metallic labels.
-      for (const contrast of [200, 300, 400]) {
-        if (found.size >= 2) break;
-        addFound(
-          found,
-          await readBarcodesFromImageData(
-            getImageData(applyContrastFilter(base, contrast)),
-            READER_OPTIONS,
-          ),
-        );
-      }
+    if (found.size < 2) {
+      // Pass 7: sharpened + contrast(400%) — recovers blurry barcode bar edges.
+      addFound(found, await readBarcodesFromImageData(
+        getSharpenedImageData(applyContrastFilter(base, 400)), READER_OPTIONS));
+    }
 
-      if (found.size < 2) {
-        // Pass 5: sharpened + contrast(400%) — recovers blurry barcode bar edges.
-        addFound(
-          found,
-          await readBarcodesFromImageData(
-            getSharpenedImageData(applyContrastFilter(base, 400)),
-            READER_OPTIONS,
-          ),
-        );
-      }
+    if (found.size < 2) {
+      // Pass 8: 4×4 tiled sharpened+contrast(400%) — small barcodes + low contrast.
+      await runTiledZxing(applyContrastFilter(base, 400), found, 4, true);
+    }
 
-      if (found.size < 2) {
-        // Pass 6: 4×4 tiled sharpened+contrast(400%) — small barcodes + low contrast.
-        await runTiledZxing(applyContrastFilter(base, 400), found, 4, true);
-      }
+    if (found.size < 2) {
+      // Pass 9: 4×4 tiled + binary threshold — small barcodes on silver/metallic labels.
+      await runTiledZxing(applyContrastFilter(base, 10000), found, 4, false);
     }
   }
 
