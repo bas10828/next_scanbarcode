@@ -8,8 +8,8 @@ const AutoScan: React.FC = () => {
   return (
     <BarcodeScanWorkflow
       {...decoder}
-      hint="ZXing multi-pass — ฟรี ไม่ต้องใช้ license · เลือกแบรนด์ใน column หรือใช้ Auto-Detect"
-      busyLabel="ZXing multi-pass"
+      hint="zxing-wasm (C++ WASM) — ฟรี ไม่ต้องใช้ license · แม่นยำกว่า JS port · เลือกแบรนด์ใน column หรือใช้ Auto-Detect"
+      busyLabel="zxing-wasm"
       exportFileName="autoscan_results.xlsx"
       autoApplyBrand="auto"
     />

@@ -21,6 +21,9 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import UndoIcon from "@mui/icons-material/Undo";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import SwapVertIcon from "@mui/icons-material/SwapVert";
 import * as XLSX from "xlsx";
 import {
   StyledTableCell,
@@ -95,6 +98,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
   const [rows, setRows] = useState<Record<number, RowData>>({});
   const [undoStack, setUndoStack] = useState<{ result: BarcodeResult; rowData: RowData; index: number }[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [sortDir, setSortDir] = useState<"none" | "asc" | "desc">("none");
   const autoAppliedRef = useRef<BarcodeResult[] | null>(null);
 
   const toggleSelect = (index: number) => {
@@ -229,7 +233,8 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
 
   const exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(
-      results.map((result, index) => {
+      displayIndices.map((index) => {
+        const result = results[index];
         const row = rows[index] ?? EMPTY_ROW;
         return {
           BarcodeText: result.barcodeText.join(", "),
@@ -249,6 +254,16 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
 
   // Duplicate detection — each unique duplicate value gets a 1-based group number (unlimited)
   // and a cycling palette color (16 colors). Both are shown together in the cell.
+  const displayIndices = useMemo(() => {
+    const indices = results.map((_, i) => i);
+    if (sortDir === "none") return indices;
+    return [...indices].sort((a, b) => {
+      const fa = removeFileExtension(results[a].fileName).toLowerCase();
+      const fb = removeFileExtension(results[b].fileName).toLowerCase();
+      return sortDir === "asc" ? fa.localeCompare(fb) : fb.localeCompare(fa);
+    });
+  }, [results, sortDir]);
+
   const { snGroupMap, macGroupMap, dupSnGroups, dupMacGroups } = useMemo(() => {
     const snCounts = new Map<string, number>();
     const macCounts = new Map<string, number>();
@@ -345,7 +360,21 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                     />
                   </StyledTableCell>
                   <StyledTableCell>Barcode Text</StyledTableCell>
-                  <StyledTableCell>File Name</StyledTableCell>
+                  <StyledTableCell
+                    onClick={() => setSortDir((prev) => prev === "asc" ? "desc" : "asc")}
+                    sx={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
+                  >
+                    <Box display="flex" alignItems="center" gap={0.5}>
+                      File Name
+                      {sortDir === "asc" ? (
+                        <ArrowUpwardIcon sx={{ fontSize: "0.9rem" }} />
+                      ) : sortDir === "desc" ? (
+                        <ArrowDownwardIcon sx={{ fontSize: "0.9rem" }} />
+                      ) : (
+                        <SwapVertIcon sx={{ fontSize: "0.9rem", opacity: 0.4 }} />
+                      )}
+                    </Box>
+                  </StyledTableCell>
                   <StyledTableCell>Brand</StyledTableCell>
                   <StyledTableCell>Model</StyledTableCell>
                   <StyledTableCell>Serial</StyledTableCell>
@@ -355,7 +384,8 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                 </TableRow>
               </StyledTableHead>
               <TableBody>
-                {results.map((result, index) => {
+                {displayIndices.map((index) => {
+                  const result = results[index];
                   const row = rows[index] ?? EMPTY_ROW;
                   const isSelected = selected.has(index);
                   const snGroup = snGroupMap.get(row.serial);
