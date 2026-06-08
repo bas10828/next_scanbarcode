@@ -5,39 +5,51 @@ import type { ReportImage } from "./types";
 // 5 cm per image: 197px × 9144 EMU = 1 801 368 EMU ÷ 360 000 ≈ 5 cm
 const CM5 = 197;
 
-function b64ToUint8Array(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
 function scaleTo5cm(w: number, h: number) {
   const r = Math.min(CM5 / w, CM5 / h);
   return { width: Math.round(w * r), height: Math.round(h * r) };
 }
 
-function getImageType(name: string): "jpg" | "png" | "gif" | "bmp" {
-  const ext = name.toLowerCase().split(".").pop();
-  if (ext === "png") return "png";
-  if (ext === "gif") return "gif";
-  if (ext === "bmp") return "bmp";
-  return "jpg";
+// Resize image to 2× display size via canvas before embedding — keeps quality while dropping file size
+async function resizeImage(img: ReportImage, displayW: number, displayH: number): Promise<Uint8Array> {
+  const targetW = displayW * 2;
+  const targetH = displayH * 2;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext("2d")!;
+
+  const el = new Image();
+  await new Promise<void>((resolve, reject) => {
+    el.onload = () => resolve();
+    el.onerror = reject;
+    el.src = img.dataUrl;
+  });
+
+  ctx.drawImage(el, 0, 0, targetW, targetH);
+
+  const blob = await new Promise<Blob>((resolve) =>
+    canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.85),
+  );
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
-function makeImageRow(images: ReportImage[]): Paragraph {
+async function makeImageRow(images: ReportImage[]): Promise<Paragraph> {
   const runs: (ImageRun | TextRun)[] = [];
-  images.forEach((img, i) => {
+  for (let i = 0; i < images.length; i++) {
     if (i > 0) runs.push(new TextRun({ text: "  " }));
+    const img = images[i];
     const dims = scaleTo5cm(img.w, img.h);
+    const data = await resizeImage(img, dims.width, dims.height);
     runs.push(
       new ImageRun({
-        data: b64ToUint8Array(img.b64),
+        data,
         transformation: dims,
-        type: getImageType(img.name),
+        type: "jpg",
       }),
     );
-  });
+  }
   return new Paragraph({ children: runs, spacing: { before: 100, after: 200 } });
 }
 
@@ -48,10 +60,11 @@ export const exportReportToWord = async (
   const lines = report.split("\n");
   const children: Paragraph[] = [];
 
-  lines.forEach((line, idx) => {
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
     if (line.trim() === "") {
       children.push(new Paragraph({ text: "" }));
-      return;
+      continue;
     }
 
     children.push(
@@ -64,10 +77,10 @@ export const exportReportToWord = async (
     const matched = lineImages[idx];
     if (matched && matched.length > 0) {
       for (let i = 0; i < matched.length; i += 3) {
-        children.push(makeImageRow(matched.slice(i, i + 3)));
+        children.push(await makeImageRow(matched.slice(i, i + 3)));
       }
     }
-  });
+  }
 
   const doc = new Document({
     sections: [
