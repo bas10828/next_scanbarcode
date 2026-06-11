@@ -13,6 +13,7 @@ export type Brand =
   | "reyee"
   | "tp-link"
   | "vigi"
+  | "injector"
   | "hikvision"
   | "unv"
   | "yealink"
@@ -228,6 +229,20 @@ const parseMikrotik = (barcodes: string[]): ParsedBarcode => {
   };
 };
 
+// TP-Link PoE Injector labels carry 1D barcode with SN only.
+// SN format: "42" prefix + 11 alphanumeric chars = 13 chars total (e.g. "425C309002611").
+// No network interface on the injector itself → MAC is always N/A.
+const parseInjector = (barcodes: string[]): ParsedBarcode => {
+  const data = barcodes.join(" ").toUpperCase();
+  const snMatch = data.match(/\b42[A-Z0-9]{11}\b/);
+  return {
+    serial: snMatch ? snMatch[0] : "non",
+    mac: "non",
+    mac_: "",
+    model: "",
+  };
+};
+
 // Cisco labels typically carry 3 barcodes:
 //   - 1D barcode: PID/model, format "<2digits>-<5digits>-<2digits> <variant>" e.g. "74-12075-03 C0"
 //   - 1D barcode: SN, format 3 uppercase letters (MFR code) + 6 digits + 2 alphanum e.g. "DNI210803Z9"
@@ -261,6 +276,7 @@ const PARSERS: Record<Brand, (barcodes: string[]) => ParsedBarcode> = {
   reyee: parseReyee,
   "tp-link": parseTpLink,
   vigi: parseTpLink, // VIGI cameras use identical SN/MAC encoding to TP-Link Omada.
+  injector: parseInjector,
   hikvision: parseHikvision,
   unv: parseUnv,
   yealink: parseYealink,
@@ -289,6 +305,7 @@ export const detectBrand = (barcodes: string[]): Brand => {
   if (/LCL\d{6,}/.test(data)) return "cleanline";
   if (/\b[A-Z]{3}\d{6}[A-Z0-9]{2}\b/.test(data)) return "cisco";
   if (/\b(?:CA|G1|ZA|AH)[A-Z0-9]{11}\b/.test(data)) return "reyee";
+  if (/\b42[A-Z0-9]{11}\b/.test(data)) return "injector";
   if (/\b22[A-Z0-9]{11,13}\b/.test(data)) return "tp-link";
 
   // SN length-based (checked after all prefix patterns to avoid early exits)
@@ -307,6 +324,7 @@ export const BRAND_OPTIONS: { value: Brand; label: string }[] = [
   { value: "unifi", label: "Unifi" },
   { value: "tp-link", label: "TP-Link" },
   { value: "vigi", label: "TP-Link VIGI" },
+  { value: "injector", label: "TP-Link Injector" },
   { value: "hikvision", label: "Hikvision" },
   { value: "unv", label: "UNV" },
   { value: "yealink", label: "Yealink" },

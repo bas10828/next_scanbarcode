@@ -52,12 +52,10 @@ const apWithCableSkip: Matcher = (ctx) => {
 
 const controller: Matcher = (ctx) => {
   const { d, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
+  const isOmadaModel = d.includes("oc200") || d.includes("oc220") || d.includes("oc300");
   const isController =
-    (d.includes("controller") ||
-      d.includes("oc200") ||
-      d.includes("oc220") ||
-      d.includes("oc300")) &&
-    !d.includes("switch") &&
+    (d.includes("controller") || isOmadaModel) &&
+    (!d.includes("switch") || isOmadaModel) &&
     !d.includes("access point") &&
     !d.includes("router");
   if (!isController) return null;
@@ -190,17 +188,19 @@ const router: Matcher = (ctx) => {
   const { d, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
   if (!d.includes("router")) return null;
 
-  const routers = inventoryData.filter(
-    ([, deviceType, , , , , , , location]) =>
-      deviceType &&
-      String(deviceType).toLowerCase().includes("router") &&
-      location &&
-      String(location).includes(String(currentBuilding)),
-  );
+  const dNormalized = collapseSpaces(d);
+  const buildingNorm = normalize(currentBuilding);
+
+  const routers = inventoryData.slice(1).filter((row) => {
+    const [, deviceType, , model, , , , , location] = row;
+    if (!model) return false;
+    const typeNorm = normalize(deviceType);
+    const locNorm = normalize(location);
+    return typeNorm.includes("router") && locNorm.includes(buildingNorm);
+  });
 
   if (routers.length === 0) return { type: "category-no-inv" };
 
-  const dNormalized = collapseSpaces(d);
   let text = "";
   let subSubItemIndex = 1;
   routers.forEach(([, , brand, model, serialNumber, , deviceName, , location]) => {
