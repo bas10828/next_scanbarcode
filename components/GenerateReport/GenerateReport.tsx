@@ -45,7 +45,7 @@ function computeLineImages(
   const result: Record<number, ReportImage[]> = {};
   reportText.split("\n").forEach((line, idx) => {
     const matches = Array.from(line.matchAll(/\(([^()]+)\)/g));
-    const candidates = matches.filter((m) => m[1].length > 2 && /[A-Za-z]/.test(m[1]));
+    const candidates = matches.filter((m) => m[1].length > 4 || /[A-Za-z]/.test(m[1]));
     if (candidates.length === 0) return;
     const label = candidates[candidates.length - 1][1].toUpperCase();
     const matched = images.filter((img) => img.name.toUpperCase().includes(label));

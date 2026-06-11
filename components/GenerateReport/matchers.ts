@@ -88,6 +88,34 @@ const controller: Matcher = (ctx) => {
   return { type: "matched", text, nextSubItemIndex: nextSub };
 };
 
+const injector: Matcher = (ctx) => {
+  const { d, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
+  if (!d.includes("injector") && !d.includes("poe160") && !d.includes("poe260")) return null;
+
+  const dNormalized = collapseSpaces(d);
+  const buildingNorm = normalize(currentBuilding);
+
+  const injectors = inventoryData.slice(1).filter((row) => {
+    const [, , , model, , , , , location] = row;
+    if (!model) return false;
+    const modelNorm = collapseSpaces(String(model));
+    const locNorm = normalize(location);
+    return modelNorm.length > 2 && dNormalized.includes(modelNorm) && locNorm.includes(buildingNorm);
+  });
+
+  if (injectors.length === 0) return { type: "category-no-inv" };
+
+  let text = "";
+  let subSubItemIndex = 1;
+  injectors.forEach(([, , brand, model, serialNumber, , deviceName, , location]) => {
+    text += `${buildingIndex - 1}.${subItemIndex}.${subSubItemIndex} ติดตั้ง PoE Injector ${
+      brand ?? ""
+    } ${model ?? ""} (${deviceName ?? ""}) S/N: ${serialNumber ?? ""} ${location ?? ""}\n`;
+    subSubItemIndex++;
+  });
+  return { type: "matched", text, nextSubItemIndex: subItemIndex + 1 };
+};
+
 const switchMatcher: Matcher = (ctx) => {
   const { d, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
   if (!d.includes("switch")) return null;
@@ -354,6 +382,7 @@ export const matchers: Matcher[] = [
   accessPoint,
   apWithCableSkip,
   controller,
+  injector,
   switchMatcher,
   ipPhone,
   stabilizer,
