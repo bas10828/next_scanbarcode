@@ -102,7 +102,12 @@ export default function Home() {
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
         <AppBar position="sticky" elevation={3}>
           <Toolbar sx={{ gap: 1.5 }}>
-            <QrCodeScannerIcon />
+            <Box
+              component="img"
+              src="/logo.jpg"
+              alt="logo"
+              sx={{ height: 36, width: "auto", borderRadius: 1 }}
+            />
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>
               Scan Barcode & QR Code
             </Typography>
