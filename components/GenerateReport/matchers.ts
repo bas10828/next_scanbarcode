@@ -1,5 +1,8 @@
-import type { Matcher, MatcherContext, MatcherOutcome } from "./types";
+import type { ExcelRow, Matcher, MatcherContext, MatcherOutcome } from "./types";
 import { collapseSpaces, normalize } from "./reportUtils";
+
+const sortByDeviceName = (rows: ExcelRow[]): ExcelRow[] =>
+  [...rows].sort((a, b) => String(a[6] ?? "").localeCompare(String(b[6] ?? "")));
 
 const accessPoint: Matcher = (ctx) => {
   const { d, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
@@ -14,19 +17,25 @@ const accessPoint: Matcher = (ctx) => {
   const dNormalized = collapseSpaces(d);
   const buildingNorm = normalize(currentBuilding);
 
-  const aps = inventoryData
-    .slice(1)
-    .filter(([, deviceType, , model, , , , , location]) => {
-      if (!model) return false;
-      const type = normalize(deviceType);
-      const loc = normalize(location);
-      const modelNorm = normalize(model);
-      return (
-        type.includes("accesspoint") &&
-        loc.includes(buildingNorm) &&
-        dNormalized.includes(modelNorm)
-      );
-    });
+  const isOmadaControllerModel = (m: unknown) => {
+    const mn = normalize(m);
+    return mn.includes("oc200") || mn.includes("oc220") || mn.includes("oc300");
+  };
+
+  const aps = sortByDeviceName(
+    inventoryData
+      .slice(1)
+      .filter(([, deviceType, , model, , , , , location]) => {
+        if (!model) return false;
+        const type = normalize(deviceType);
+        const loc = normalize(location);
+        return (
+          type.includes("accesspoint") &&
+          !isOmadaControllerModel(model) &&
+          loc.includes(buildingNorm)
+        );
+      }),
+  );
 
   if (aps.length === 0) return { type: "category-no-inv" };
 
@@ -63,17 +72,17 @@ const controller: Matcher = (ctx) => {
   const dNormalized = collapseSpaces(d);
   const buildingNorm = normalize(currentBuilding);
 
-  const controllers = inventoryData.filter(([, deviceType, , model, , , , , location]) => {
-    if (!model) return false;
-    const type = normalize(deviceType);
-    const loc = normalize(location);
-    const modelNorm = normalize(model);
-    return (
-      (type.includes("controller") || type.includes("omada")) &&
-      loc.includes(buildingNorm) &&
-      dNormalized.includes(modelNorm)
-    );
-  });
+  const controllers = sortByDeviceName(
+    inventoryData.filter(([, deviceType, , model, , , , , location]) => {
+      if (!model) return false;
+      const type = normalize(deviceType);
+      const loc = normalize(location);
+      return (
+        (type.includes("controller") || type.includes("omada")) &&
+        loc.includes(buildingNorm)
+      );
+    }),
+  );
 
   if (controllers.length === 0) return { type: "category-no-inv" };
 
@@ -95,13 +104,15 @@ const injector: Matcher = (ctx) => {
   const dNormalized = collapseSpaces(d);
   const buildingNorm = normalize(currentBuilding);
 
-  const injectors = inventoryData.slice(1).filter((row) => {
-    const [, , , model, , , , , location] = row;
-    if (!model) return false;
-    const modelNorm = collapseSpaces(String(model));
-    const locNorm = normalize(location);
-    return modelNorm.length > 2 && dNormalized.includes(modelNorm) && locNorm.includes(buildingNorm);
-  });
+  const injectors = sortByDeviceName(
+    inventoryData.slice(1).filter((row) => {
+      const [, , , model, , , , , location] = row;
+      if (!model) return false;
+      const modelNorm = collapseSpaces(String(model));
+      const locNorm = normalize(location);
+      return modelNorm.length > 2 && dNormalized.includes(modelNorm) && locNorm.includes(buildingNorm);
+    }),
+  );
 
   if (injectors.length === 0) return { type: "category-no-inv" };
 
@@ -123,18 +134,15 @@ const switchMatcher: Matcher = (ctx) => {
   const dNormalized = collapseSpaces(d);
   const buildingNorm = normalize(currentBuilding);
 
-  const switches = inventoryData.slice(1).filter((row) => {
-    const [, deviceType, , model, , , , , location] = row;
-    if (!model) return false;
-    const typeNorm = normalize(deviceType);
-    const locNorm = normalize(location);
-    const modelNorm = normalize(model);
-    return (
-      typeNorm.includes("switch") &&
-      locNorm.includes(buildingNorm) &&
-      dNormalized.includes(modelNorm)
-    );
-  });
+  const switches = sortByDeviceName(
+    inventoryData.slice(1).filter((row) => {
+      const [, deviceType, , model, , , , , location] = row;
+      if (!model) return false;
+      const typeNorm = normalize(deviceType);
+      const locNorm = normalize(location);
+      return typeNorm.includes("switch") && locNorm.includes(buildingNorm);
+    }),
+  );
 
   if (switches.length === 0) return { type: "category-no-inv" };
 
@@ -161,18 +169,19 @@ const ipPhone: Matcher = (ctx) => {
   const dNormalized = collapseSpaces(d);
   const buildingNorm = normalize(currentBuilding);
 
-  const phones = inventoryData.slice(1).filter((row) => {
-    const [, deviceType, , model, , , , , location] = row;
-    if (!model) return false;
-    const typeNorm = normalize(deviceType);
-    const locNorm = normalize(location);
-    const modelNorm = normalize(model);
-    const matchType =
-      typeNorm.includes("phone") ||
-      typeNorm.includes("ipphone") ||
-      typeNorm.includes("telephone");
-    return matchType && locNorm.includes(buildingNorm) && dNormalized.includes(modelNorm);
-  });
+  const phones = sortByDeviceName(
+    inventoryData.slice(1).filter((row) => {
+      const [, deviceType, , model, , , , , location] = row;
+      if (!model) return false;
+      const typeNorm = normalize(deviceType);
+      const locNorm = normalize(location);
+      const matchType =
+        typeNorm.includes("phone") ||
+        typeNorm.includes("ipphone") ||
+        typeNorm.includes("telephone");
+      return matchType && locNorm.includes(buildingNorm);
+    }),
+  );
 
   if (phones.length === 0) return { type: "category-no-inv" };
 
@@ -219,13 +228,15 @@ const router: Matcher = (ctx) => {
   const dNormalized = collapseSpaces(d);
   const buildingNorm = normalize(currentBuilding);
 
-  const routers = inventoryData.slice(1).filter((row) => {
-    const [, deviceType, , model, , , , , location] = row;
-    if (!model) return false;
-    const typeNorm = normalize(deviceType);
-    const locNorm = normalize(location);
-    return typeNorm.includes("router") && locNorm.includes(buildingNorm);
-  });
+  const routers = sortByDeviceName(
+    inventoryData.slice(1).filter((row) => {
+      const [, deviceType, , model, , , , , location] = row;
+      if (!model) return false;
+      const typeNorm = normalize(deviceType);
+      const locNorm = normalize(location);
+      return typeNorm.includes("router") && locNorm.includes(buildingNorm);
+    }),
+  );
 
   if (routers.length === 0) return { type: "category-no-inv" };
 
@@ -233,13 +244,10 @@ const router: Matcher = (ctx) => {
   let subSubItemIndex = 1;
   routers.forEach(([, , brand, model, serialNumber, , deviceName, , location]) => {
     if (!model) return;
-    const modelNormalized = collapseSpaces(model);
-    if (dNormalized.includes(modelNormalized)) {
-      text += `${buildingIndex - 1}.${subItemIndex}.${subSubItemIndex} ติดตั้ง Router ${
-        brand ?? ""
-      } ${model ?? ""} (${deviceName ?? ""}) S/N: ${serialNumber ?? ""} ${location ?? ""}\n`;
-      subSubItemIndex++;
-    }
+    text += `${buildingIndex - 1}.${subItemIndex}.${subSubItemIndex} ติดตั้ง Router ${
+      brand ?? ""
+    } ${model ?? ""} (${deviceName ?? ""}) S/N: ${serialNumber ?? ""} ${location ?? ""}\n`;
+    subSubItemIndex++;
   });
 
   if (subSubItemIndex === 1) return { type: "category-no-inv" };
@@ -250,20 +258,16 @@ const ups: Matcher = (ctx) => {
   const { d, rawDetail, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
   if (!d.toLowerCase().includes("ups")) return null;
 
-  const upsList = inventoryData.filter(
-    ([, deviceType, , model, , , , , location]) => {
-      if (!model) return false;
-      const type = String(deviceType ?? "").toLowerCase().trim();
-      const loc = collapseSpaces(location);
-      const currentLoc = collapseSpaces(currentBuilding);
-      const modelNormalized = collapseSpaces(model);
-      const detailNormalized = collapseSpaces(rawDetail);
-      return (
-        type.includes("ups") &&
-        loc.includes(currentLoc) &&
-        detailNormalized.includes(modelNormalized)
-      );
-    },
+  const upsList = sortByDeviceName(
+    inventoryData.filter(
+      ([, deviceType, , model, , , , , location]) => {
+        if (!model) return false;
+        const type = String(deviceType ?? "").toLowerCase().trim();
+        const loc = collapseSpaces(location);
+        const currentLoc = collapseSpaces(currentBuilding);
+        return type.includes("ups") && loc.includes(currentLoc);
+      },
+    ),
   );
 
   if (upsList.length === 0) return { type: "category-no-inv" };
@@ -283,12 +287,14 @@ const ipCamera: Matcher = (ctx) => {
   const { d, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
   if (!(d.toLowerCase().includes("ip") && d.toLowerCase().includes("camera"))) return null;
 
-  const ipCameras = inventoryData.filter(
-    ([, deviceType, , , , , , , location]) =>
-      deviceType &&
-      String(deviceType).toLowerCase().includes("ip camera") &&
-      location &&
-      String(location).includes(String(currentBuilding)),
+  const ipCameras = sortByDeviceName(
+    inventoryData.filter(
+      ([, deviceType, , , , , , , location]) =>
+        deviceType &&
+        String(deviceType).toLowerCase().includes("ip camera") &&
+        location &&
+        String(location).includes(String(currentBuilding)),
+    ),
   );
 
   if (ipCameras.length === 0) return { type: "category-no-inv" };
@@ -308,13 +314,15 @@ const nvr: Matcher = (ctx) => {
   const { d, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
   if (!d.toLowerCase().includes("nvr")) return null;
 
-  const nvrs = inventoryData.filter(
-    ([, deviceType, , , , , , , location]) => {
-      const type = String(deviceType ?? "").toLowerCase();
-      const loc = collapseSpaces(location);
-      const currentLoc = collapseSpaces(currentBuilding);
-      return type.includes("nvr") && loc.includes(currentLoc);
-    },
+  const nvrs = sortByDeviceName(
+    inventoryData.filter(
+      ([, deviceType, , , , , , , location]) => {
+        const type = String(deviceType ?? "").toLowerCase();
+        const loc = collapseSpaces(location);
+        const currentLoc = collapseSpaces(currentBuilding);
+        return type.includes("nvr") && loc.includes(currentLoc);
+      },
+    ),
   );
 
   if (nvrs.length === 0) return { type: "category-no-inv" };
@@ -345,15 +353,15 @@ const outlet: Matcher = (ctx) => {
     raw.includes("phone");
 
   const outletType = isTel ? "สำหรับโทรศัพท์" : "LAN";
-  const outletLabel = isTel ? "TEL" : "LAN";
+  const outletPrefix = isTel ? "T" : "L";
+  const buildingNum = buildingIndex - 1;
 
-  let text = `${buildingIndex - 1}.${subItemIndex} ติดตั้งสาย UTP CAT-6 Indoor แบบเหมาจุดรวมของ พร้อมติดตั้ง Outlet ${outletType} (เดินร้อยท่อ PVC สีขาว)\n`;
+  let text = `${buildingNum}.${subItemIndex} ติดตั้งสาย UTP CAT-6 Indoor แบบเหมาจุดรวมของ พร้อมติดตั้ง Outlet ${outletType} (เดินร้อยท่อ PVC สีขาว)\n`;
 
   let subSubItemIndex = 1;
   for (let i = 0; i < qty; i++) {
-    text += `${buildingIndex - 1}.${subItemIndex}.${subSubItemIndex} ติดตั้ง Outlet ${outletType} (${outletLabel}${
-      i + 1
-    })\n`;
+    const label = `${outletPrefix}${buildingNum}-${String(i + 1).padStart(2, "0")}`;
+    text += `${buildingNum}.${subItemIndex}.${subSubItemIndex} ติดตั้ง Outlet ${outletType} (${label})\n`;
     subSubItemIndex++;
   }
 
@@ -377,16 +385,17 @@ const skipRules: Matcher = (ctx) => {
   return null;
 };
 
-// Order matters — first non-null wins. Mirrors the original if/else chain.
+// Order matters — first non-null wins.
+// apWithCableSkip must precede accessPoint. outlet must be last before skipRules.
 export const matchers: Matcher[] = [
-  accessPoint,
   apWithCableSkip,
+  router,
+  switchMatcher,
+  accessPoint,
   controller,
   injector,
-  switchMatcher,
   ipPhone,
   stabilizer,
-  router,
   ups,
   ipCamera,
   nvr,
