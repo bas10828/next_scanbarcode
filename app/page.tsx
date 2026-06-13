@@ -20,9 +20,8 @@ import VideocamIcon from "@mui/icons-material/Videocam";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import TransformIcon from "@mui/icons-material/Transform";
 import DescriptionIcon from "@mui/icons-material/Description";
-import RotateRightIcon from "@mui/icons-material/RotateRight";
-import CropIcon from "@mui/icons-material/Crop";
 import TuneIcon from "@mui/icons-material/Tune";
+import TimelineIcon from "@mui/icons-material/Timeline";
 
 const VideoCapture = dynamic(
   () => import("../components/VideoCapture/VideoCapture"),
@@ -40,20 +39,16 @@ const GenerateReport = dynamic(
   () => import("../components/GenerateReport/GenerateReport"),
   { ssr: false },
 );
-const ImageCropper = dynamic(
-  () => import("../components/ImageCropper/ImageCropper"),
-  { ssr: false },
-);
-const ImageRotator = dynamic(
-  () => import("../components/ImageRotator/ImageRotator"),
-  { ssr: false },
-);
 const AutoScan = dynamic(
   () => import("../components/AutoScan/AutoScan"),
   { ssr: false },
 );
 const ImageEditor = dynamic(
   () => import("../components/ImageEditor/ImageEditor"),
+  { ssr: false },
+);
+const OTDRReport = dynamic(
+  () => import("../components/OTDRReport/OTDRReport"),
   { ssr: false },
 );
 
@@ -84,8 +79,7 @@ const MODE_TABS: TabSpec[] = [
   { label: "Generate Report", icon: <DescriptionIcon />, Component: GenerateReport },
   { label: "Convert File", icon: <TransformIcon />, Component: ImageConvert },
   { label: "Edit Image (Crop + Rotate)", icon: <TuneIcon />, Component: ImageEditor },
-  { label: "Rotate Image", icon: <RotateRightIcon />, Component: ImageRotator },
-  { label: "Crop Image", icon: <CropIcon />, Component: ImageCropper },
+  { label: "OTDR Report", icon: <TimelineIcon />, Component: OTDRReport },
 ];
 
 export default function Home() {
