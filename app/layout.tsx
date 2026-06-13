@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "scan barcode",
   description: "Dynamsoft Barcode Reader in a Next.js Application, helps read barcodes from camera or images.",
   keywords: "barcodes, camera, images, nextjs",
+  icons: { icon: "/logo.jpg" },
 };
 
 export default function RootLayout({
