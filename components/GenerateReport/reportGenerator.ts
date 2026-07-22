@@ -1,5 +1,15 @@
 import type { ExcelRow } from "./types";
 import { runMatchers } from "./matchers";
+import { collapseSpaces, normalize } from "./reportUtils";
+
+const isIPCameraModelInText = (d: string, inventoryData: ExcelRow[]): boolean => {
+  const dNorm = collapseSpaces(d);
+  return inventoryData.slice(1).some(([, deviceType, , model]) => {
+    if (!model || !normalize(deviceType).includes("ipcamera")) return false;
+    const modelNorm = collapseSpaces(String(model));
+    return modelNorm.length > 2 && dNorm.includes(modelNorm);
+  });
+};
 
 const isOutletRow = (row: ExcelRow): boolean => {
   const d = String(row[1] ?? "").toLowerCase().replace(/\s+/g, " ");
@@ -48,7 +58,11 @@ export const generateReportText = (
     const isSWRow = (d: string) => d.includes("switch");
     const isRouterRow = (d: string) => d.includes("router");
     const isUPSRow = (d: string) => d.includes("ups");
-    const isIPCamRow = (d: string) => d.includes("ip") && d.includes("camera");
+    const isIPCamRow = (d: string) =>
+      (d.includes("ip") && d.includes("camera")) ||
+      d.includes("กล้อง") ||
+      d.includes("cctv") ||
+      isIPCameraModelInText(d, inventoryData);
     const isIPPhoneRow = (d: string) =>
       d.includes("ip phone") || d.includes("ipphone") || d.includes("telephone");
     const isControllerRow = (d: string) =>

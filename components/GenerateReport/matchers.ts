@@ -285,16 +285,34 @@ const ups: Matcher = (ctx) => {
 
 const ipCamera: Matcher = (ctx) => {
   const { d, currentBuilding, inventoryData, buildingIndex, subItemIndex } = ctx;
-  if (!(d.toLowerCase().includes("ip") && d.toLowerCase().includes("camera"))) return null;
+  const dNormalized = collapseSpaces(d);
+  const buildingNorm = normalize(currentBuilding);
+
+  const cameraRows = inventoryData.slice(1).filter(([, deviceType]) =>
+    normalize(deviceType).includes("ipcamera"),
+  );
+
+  const hasKeyword =
+    (d.includes("ip") && d.includes("camera")) || d.includes("กล้อง") || d.includes("cctv");
+
+  const matchedModelRows = cameraRows.filter(([, , , model]) => {
+    if (!model) return false;
+    const modelNorm = collapseSpaces(String(model));
+    return modelNorm.length > 2 && dNormalized.includes(modelNorm);
+  });
+
+  if (!hasKeyword && matchedModelRows.length === 0) return null;
+
+  // A row naming a specific model only pulls that model; a generic
+  // "install/relocate camera" line pulls every camera in the building.
+  const candidateRows = matchedModelRows.length > 0 ? matchedModelRows : cameraRows;
 
   const ipCameras = sortByDeviceName(
-    inventoryData.filter(
-      ([, deviceType, , , , , , , location]) =>
-        deviceType &&
-        String(deviceType).toLowerCase().includes("ip camera") &&
-        location &&
-        String(location).includes(String(currentBuilding)),
-    ),
+    candidateRows.filter(([, , , model, , , , , location]) => {
+      if (!model) return false;
+      const locNorm = normalize(location);
+      return locNorm.includes(buildingNorm);
+    }),
   );
 
   if (ipCameras.length === 0) return { type: "category-no-inv" };
