@@ -24,7 +24,7 @@ import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
-import * as XLSX from "xlsx";
+import writeXlsxFile from "write-excel-file/browser";
 import {
   StyledTableCell,
   StyledTableContainer,
@@ -231,25 +231,42 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
     await decode(files);
   };
 
-  const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(
-      displayIndices.map((index) => {
-        const result = results[index];
-        const row = rows[index] ?? EMPTY_ROW;
-        return {
-          BarcodeText: result.barcodeText.join(", "),
-          FileName: removeFileExtension(result.fileName),
-          Brand: row.brand,
-          Model: row.model,
-          Serial: row.serial,
-          MAC: row.mac,
-          MAC_: row.mac_,
-        };
-      }),
-    );
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Barcode Results");
-    XLSX.writeFile(wb, exportFileName);
+  type ExcelRow = {
+    BarcodeText: string;
+    FileName: string;
+    Brand: string;
+    Model: string;
+    Serial: string;
+    MAC: string;
+    MAC_: string;
+  };
+
+  const EXCEL_COLUMNS: Array<{
+    header: string;
+    cell: (row: ExcelRow) => { value: string };
+  }> = (
+    ["BarcodeText", "FileName", "Brand", "Model", "Serial", "MAC", "MAC_"] as const
+  ).map((key) => ({
+    header: key,
+    cell: (row: ExcelRow) => ({ value: row[key] }),
+  }));
+
+  const exportToExcel = async () => {
+    const rowsData: ExcelRow[] = displayIndices.map((index) => {
+      const result = results[index];
+      const row = rows[index] ?? EMPTY_ROW;
+      return {
+        BarcodeText: result.barcodeText.join(", "),
+        FileName: removeFileExtension(result.fileName),
+        Brand: row.brand,
+        Model: row.model,
+        Serial: row.serial,
+        MAC: row.mac,
+        MAC_: row.mac_,
+      };
+    });
+
+    await writeXlsxFile(rowsData, { columns: EXCEL_COLUMNS }).toFile(exportFileName);
   };
 
   // Duplicate detection — each unique duplicate value gets a 1-based group number (unlimited)
