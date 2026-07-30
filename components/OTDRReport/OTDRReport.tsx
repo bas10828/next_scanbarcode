@@ -83,10 +83,10 @@ export default function OTDRReport() {
 
   return (
     <Box sx={{ maxWidth: 720, mx: "auto" }}>
-      <Typography variant="h6" fontWeight={700} gutterBottom>
+      <Typography variant="h6" gutterBottom sx={{ fontWeight: 700 }}>
         OTDR Report Generator
       </Typography>
-      <Typography variant="body2" color="text.secondary" mb={3}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         อัปโหลดไฟล์ .sor แล้วกด Generate เพื่อสร้าง PDF
       </Typography>
 
@@ -133,7 +133,7 @@ export default function OTDRReport() {
 
       {/* File list */}
       {files.length > 0 && (
-        <Stack direction="row" flexWrap="wrap" gap={1} mb={2}>
+        <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, mb: 2 }}>
           {files
             .slice()
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -151,7 +151,7 @@ export default function OTDRReport() {
       )}
 
       {/* Actions */}
-      <Stack direction="row" gap={2} alignItems="center">
+      <Stack direction="row" sx={{ gap: 2, alignItems: "center" }}>
         <Button
           variant="contained"
           disabled={files.length === 0 || status === "loading"}
@@ -185,8 +185,8 @@ export default function OTDRReport() {
       {message && (
         <Typography
           variant="body2"
-          mt={1.5}
           color={status === "error" ? "error" : status === "done" ? "success.main" : "text.secondary"}
+          sx={{ mt: 1.5 }}
         >
           {message}
         </Typography>

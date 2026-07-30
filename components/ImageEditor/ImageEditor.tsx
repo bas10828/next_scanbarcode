@@ -20,7 +20,7 @@ import RotateLeftIcon from "@mui/icons-material/RotateLeft";
 import RotateRightIcon from "@mui/icons-material/RotateRight";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import FileDropZone from "../common/FileDropZone";
 import { cropAndRotate, type PixelCrop } from "./cropRotateHelper";
 
@@ -135,7 +135,7 @@ const ImageCard = memo(function ImageCard({
           <Typography variant="caption" color="text.secondary">
             Rotation: {Math.round(img.rotation)}°
           </Typography>
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Tooltip title="หมุนซ้าย 90°">
               <IconButton size="small" onClick={() => onRotate(idx, "left")}>
                 <RotateLeftIcon />
@@ -157,7 +157,7 @@ const ImageCard = memo(function ImageCard({
           </Box>
         </Box>
 
-        <Box display="flex" gap={1} alignItems="center">
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
           <FormControl size="small" sx={{ flex: 1 }}>
             <InputLabel>Aspect</InputLabel>
             <Select
@@ -295,13 +295,15 @@ export default function ImageEditor() {
       />
 
       <Box
-        display="grid"
-        gridTemplateColumns={{
-          xs: "1fr",
-          md: "repeat(2, 1fr)",
-          xl: "repeat(3, 1fr)",
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            md: "repeat(2, 1fr)",
+            xl: "repeat(3, 1fr)",
+          },
+          gap: 2,
         }}
-        gap={2}
       >
         {images.map((img, idx) => (
           <ImageCard
@@ -318,11 +320,11 @@ export default function ImageEditor() {
 
       {images.length > 0 && (
         <Box
-          display="flex"
-          alignItems="center"
-          gap={2}
-          flexWrap="wrap"
           sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            flexWrap: "wrap",
             position: "sticky",
             bottom: 16,
             bgcolor: "background.paper",
@@ -362,7 +364,7 @@ export default function ImageEditor() {
       )}
 
       {images.length === 0 && (
-        <Box textAlign="center" py={4}>
+        <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography color="text.secondary" variant="body2">
             ยังไม่มีภาพ — อัปโหลดด้านบนเพื่อเริ่มแก้ไข
           </Typography>

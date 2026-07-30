@@ -15,7 +15,7 @@ import {
 import RotateLeftIcon from "@mui/icons-material/RotateLeft";
 import RotateRightIcon from "@mui/icons-material/RotateRight";
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import FileDropZone from "../common/FileDropZone";
 
@@ -114,9 +114,9 @@ export default function ImageRotator() {
       />
 
       {images.length > 0 && (
-        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
           <Chip label={`${images.length} ภาพ`} color="primary" size="small" />
-          <Box flexGrow={1} />
+          <Box sx={{ flexGrow: 1 }} />
           <Button
             variant="outlined"
             color="inherit"
@@ -140,9 +140,11 @@ export default function ImageRotator() {
       )}
 
       <Box
-        display="grid"
-        gridTemplateColumns={{ xs: "1fr", md: "repeat(2, 1fr)", xl: "repeat(3, 1fr)" }}
-        gap={2}
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", xl: "repeat(3, 1fr)" },
+          gap: 2,
+        }}
       >
         {images.map((img, idx) => (
           <Card
@@ -188,7 +190,7 @@ export default function ImageRotator() {
               />
             </Box>
 
-            <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
               <Tooltip title="หมุนซ้าย 90°">
                 <IconButton onClick={() => rotateBy(idx, -90)}>
                   <RotateLeftIcon />
@@ -205,7 +207,7 @@ export default function ImageRotator() {
                 </IconButton>
               </Tooltip>
 
-              <Box flexGrow={1} />
+              <Box sx={{ flexGrow: 1 }} />
 
               <Tooltip title="Reset">
                 <IconButton size="small" onClick={() => handleReset(idx)}>
@@ -223,7 +225,7 @@ export default function ImageRotator() {
       </Box>
 
       {images.length === 0 && (
-        <Box textAlign="center" py={4}>
+        <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography color="text.secondary" variant="body2">
             ยังไม่มีภาพ — อัปโหลดด้านบนเพื่อเริ่มหมุน
           </Typography>

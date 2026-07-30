@@ -18,7 +18,7 @@ import {
   Checkbox,
 } from "@mui/material";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import UndoIcon from "@mui/icons-material/Undo";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -271,6 +271,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
 
   // Duplicate detection — each unique duplicate value gets a 1-based group number (unlimited)
   // and a cycling palette color (16 colors). Both are shown together in the cell.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React Compiler isn't enabled for this project; manual useMemo is intentional.
   const displayIndices = useMemo(() => {
     const indices = results.map((_, i) => i);
     if (sortDir === "none") return indices;
@@ -315,7 +316,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
 
       {results.length > 0 && (
         <>
-          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
             <Chip label={`${results.length} ภาพ`} color="primary" size="small" />
             {(dupSnGroups > 0 || dupMacGroups > 0) && (
               <Chip
@@ -343,7 +344,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                 ))}
               </Select>
             </FormControl>
-            <Box flexGrow={1} />
+            <Box sx={{ flexGrow: 1 }} />
             <Button
               variant="outlined"
               color="inherit"
@@ -381,7 +382,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                     onClick={() => setSortDir((prev) => prev === "asc" ? "desc" : "asc")}
                     sx={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
                   >
-                    <Box display="flex" alignItems="center" gap={0.5}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                       File Name
                       {sortDir === "asc" ? (
                         <ArrowUpwardIcon sx={{ fontSize: "0.9rem" }} />
@@ -447,7 +448,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                         sx={rowPalette ? { color: rowPalette.fg, fontWeight: 700 } : undefined}
                       >
                         {rowGroup != null ? (
-                          <Box display="flex" alignItems="center" gap={0.5}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                             <Box component="span" sx={{
                               display: "inline-flex", alignItems: "center", justifyContent: "center",
                               minWidth: 18, height: 18, borderRadius: "50%",
@@ -484,7 +485,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
             </Table>
           </StyledTableContainer>
 
-          <Box display="flex" justifyContent="flex-end" pt={1}>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 1 }}>
             <Button
               variant="contained"
               color="primary"
@@ -498,7 +499,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
       )}
 
       {results.length === 0 && !busy && (
-        <Box textAlign="center" py={4}>
+        <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography color="text.secondary" variant="body2">
             ยังไม่มีผลการ scan — อัปโหลดภาพด้านบนเพื่อเริ่มต้น
           </Typography>
@@ -542,7 +543,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
               ))}
             </Select>
           </FormControl>
-          <Box flexGrow={1} />
+          <Box sx={{ flexGrow: 1 }} />
           <Button
             size="small"
             variant="outlined"

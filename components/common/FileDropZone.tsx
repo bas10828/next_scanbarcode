@@ -72,7 +72,7 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({
       {busy ? (
         <>
           <CircularProgress size={40} thickness={4} sx={{ mb: 1.5, color: "primary.main" }} />
-          <Typography variant="body1" fontWeight={600} color="text.primary">
+          <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>
             {busyText ?? "กำลังประมวลผล..."}
           </Typography>
         </>
@@ -87,15 +87,13 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({
               transform: dragging ? "translateY(-4px)" : "none",
             }}
           />
-          <Typography variant="body1" fontWeight={600} color="text.primary">
+          <Typography variant="body1" color="text.primary" sx={{ fontWeight: 600 }}>
             ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือก
           </Typography>
           <Typography
             variant="caption"
             color="text.secondary"
-            display="block"
-            mt={0.75}
-            sx={{ maxWidth: 560, mx: "auto", lineHeight: 1.6 }}
+            sx={{ display: "block", mt: 0.75, maxWidth: 560, mx: "auto", lineHeight: 1.6 }}
           >
             {hint}
             {multiple && (
