@@ -36,6 +36,11 @@ type ImageItem = {
   croppedAreaPixels?: PixelCrop;
 };
 
+// Browsers never expose a file's real filesystem path (security) — the best
+// we get is webkitRelativePath, populated only when a whole folder is dropped/selected.
+const imgPath = (file: File): string =>
+  (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+
 const aspectOptions: { label: string; value: Aspect }[] = [
   { label: "Free", value: "free" },
   { label: "1:1", value: 1 },
@@ -85,10 +90,6 @@ const ImageCard = memo(function ImageCard({
         gap: 1.25,
       }}
     >
-      <Typography variant="caption" color="text.secondary" noWrap>
-        {img.file.name}
-      </Typography>
-
       <Box
         sx={{
           position: "relative",
@@ -114,6 +115,30 @@ const ImageCard = memo(function ImageCard({
           showGrid={true}
           restrictPosition={true}
         />
+
+        <Box
+          title={imgPath(img.file)}
+          sx={{
+            position: "absolute",
+            top: 8,
+            left: 8,
+            right: 8,
+            zIndex: 30,
+            color: "#fff",
+            bgcolor: "rgba(0,0,0,0.75)",
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            fontSize: "0.75rem",
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            pointerEvents: "auto",
+          }}
+        >
+          {imgPath(img.file)}
+        </Box>
       </Box>
 
       <Stack spacing={1}>

@@ -16,6 +16,7 @@ import {
   Chip,
   Tooltip,
   Checkbox,
+  TextField,
 } from "@mui/material";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
@@ -35,6 +36,7 @@ import {
   BRAND_OPTIONS,
   parseBarcode,
   detectBrand,
+  formatMacAddress,
   type Brand,
   type ParsedBarcode,
 } from "../ImageCapture/barcodeParsers";
@@ -160,6 +162,23 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
   const handleBrandChange = (index: number, brand: Brand) => {
     applyBrand(index, resolveBrand(brand, results[index].barcodeText), results);
   };
+
+  // Manual override for a single field — used when the scanner misreads or
+  // misses a value entirely, so the user can just type it in. Typing into
+  // MAC auto-formats to XX:XX:XX:XX:XX:XX as you go (strip non-hex, group by 2).
+  const updateRowField = useCallback(
+    (index: number, field: "model" | "serial" | "mac" | "mac_", value: string) => {
+      const nextValue =
+        field === "mac"
+          ? formatMacAddress(value.replace(/[^0-9a-fA-F]/g, "").toUpperCase().slice(0, 12))
+          : value;
+      setRows((prev) => ({
+        ...prev,
+        [index]: { ...(prev[index] ?? EMPTY_ROW), [field]: nextValue },
+      }));
+    },
+    [],
+  );
 
   const handleSelectAll = (brand: Brand) => {
     results.forEach((result, index) =>
@@ -443,12 +462,22 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                           ))}
                         </Select>
                       </StyledTableCell>
-                      <StyledTableCell>{row.model}</StyledTableCell>
+                      <StyledTableCell sx={{ minWidth: 110 }}>
+                        <TextField
+                          variant="standard"
+                          size="small"
+                          fullWidth
+                          value={row.model}
+                          onChange={(e) => updateRowField(index, "model", e.target.value)}
+                          slotProps={{ input: { disableUnderline: true } }}
+                          sx={{ "& input": { fontSize: "0.8125rem", py: 0.25 } }}
+                        />
+                      </StyledTableCell>
                       <StyledTableCell
-                        sx={rowPalette ? { color: rowPalette.fg, fontWeight: 700 } : undefined}
+                        sx={{ minWidth: 130, ...(rowPalette ? { color: rowPalette.fg, fontWeight: 700 } : {}) }}
                       >
-                        {rowGroup != null ? (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          {rowGroup != null && (
                             <Box component="span" sx={{
                               display: "inline-flex", alignItems: "center", justifyContent: "center",
                               minWidth: 18, height: 18, borderRadius: "50%",
@@ -457,15 +486,46 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                             }}>
                               {rowGroup}
                             </Box>
-                            {row.serial}
-                          </Box>
-                        ) : row.serial}
+                          )}
+                          <TextField
+                            variant="standard"
+                            size="small"
+                            fullWidth
+                            value={row.serial}
+                            onChange={(e) => updateRowField(index, "serial", e.target.value)}
+                            slotProps={{ input: { disableUnderline: true } }}
+                            sx={{
+                              "& input": {
+                                fontSize: "0.8125rem",
+                                py: 0.25,
+                                fontWeight: rowPalette ? 700 : undefined,
+                                color: rowPalette ? rowPalette.fg : undefined,
+                              },
+                            }}
+                          />
+                        </Box>
                       </StyledTableCell>
-                      <StyledTableCell sx={{ fontFamily: "monospace" }}>
-                        {row.mac}
+                      <StyledTableCell sx={{ minWidth: 150 }}>
+                        <TextField
+                          variant="standard"
+                          size="small"
+                          fullWidth
+                          value={row.mac}
+                          onChange={(e) => updateRowField(index, "mac", e.target.value)}
+                          slotProps={{ input: { disableUnderline: true } }}
+                          sx={{ "& input": { fontFamily: "monospace", fontSize: "0.8125rem", py: 0.25 } }}
+                        />
                       </StyledTableCell>
-                      <StyledTableCell sx={{ fontFamily: "monospace" }}>
-                        {row.mac_}
+                      <StyledTableCell sx={{ minWidth: 150 }}>
+                        <TextField
+                          variant="standard"
+                          size="small"
+                          fullWidth
+                          value={row.mac_}
+                          onChange={(e) => updateRowField(index, "mac_", e.target.value)}
+                          slotProps={{ input: { disableUnderline: true } }}
+                          sx={{ "& input": { fontFamily: "monospace", fontSize: "0.8125rem", py: 0.25 } }}
+                        />
                       </StyledTableCell>
                       <StyledTableCell align="center">
                         <Button

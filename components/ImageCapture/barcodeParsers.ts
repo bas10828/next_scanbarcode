@@ -24,7 +24,7 @@ export type Brand =
 
 const EMPTY: ParsedBarcode = { serial: "", mac: "non", mac_: "", model: "" };
 
-const formatMacAddress = (mac: string): string =>
+export const formatMacAddress = (mac: string): string =>
   mac
     .match(/.{1,2}/g)
     ?.join(":")
