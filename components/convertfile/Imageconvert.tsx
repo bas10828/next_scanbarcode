@@ -13,7 +13,7 @@ import {
   LinearProgress,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import Image from "next/image";
 import FileDropZone from "../common/FileDropZone";
@@ -100,13 +100,13 @@ const ImageConvert: React.FC = () => {
 
       {converted.length > 0 && (
         <>
-          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
             <Chip
               label={`${converted.length} ไฟล์`}
               color="primary"
               size="small"
             />
-            <Box flexGrow={1} />
+            <Box sx={{ flexGrow: 1 }} />
             <Button
               variant="outlined"
               color="inherit"
@@ -127,9 +127,11 @@ const ImageConvert: React.FC = () => {
           </Box>
 
           <Box
-            display="grid"
-            gridTemplateColumns={{ xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)", xl: "repeat(4, 1fr)" }}
-            gap={2}
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)", xl: "repeat(4, 1fr)" },
+              gap: 2,
+            }}
           >
             {converted.map((img, idx) => (
               <Card
@@ -163,7 +165,7 @@ const ImageConvert: React.FC = () => {
                   />
                 </Box>
 
-                <Box display="flex" alignItems="center" gap={0.5} px={0.5}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 0.5 }}>
                   <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
                     {img.name}
                   </Typography>
@@ -189,7 +191,7 @@ const ImageConvert: React.FC = () => {
       )}
 
       {converted.length === 0 && !loading && (
-        <Box textAlign="center" py={4}>
+        <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography color="text.secondary" variant="body2">
             ยังไม่มีไฟล์ — อัปโหลดไฟล์ HEIC ด้านบนเพื่อแปลง
           </Typography>

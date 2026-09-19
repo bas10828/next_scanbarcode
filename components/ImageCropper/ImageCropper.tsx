@@ -18,7 +18,7 @@ import {
   Tooltip,
 } from "@mui/material";
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import FileDropZone from "../common/FileDropZone";
 
@@ -138,9 +138,9 @@ export default function ImageCropper() {
       />
 
       {images.length > 0 && (
-        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
           <Chip label={`${images.length} ภาพ`} color="primary" size="small" />
-          <Box flexGrow={1} />
+          <Box sx={{ flexGrow: 1 }} />
           <Button
             variant="outlined"
             color="inherit"
@@ -164,9 +164,11 @@ export default function ImageCropper() {
       )}
 
       <Box
-        display="grid"
-        gridTemplateColumns={{ xs: "1fr", md: "repeat(2, 1fr)", xl: "repeat(3, 1fr)" }}
-        gap={2}
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)", xl: "repeat(3, 1fr)" },
+          gap: 2,
+        }}
       >
         {images.map((img, idx) => (
           <Card
@@ -222,7 +224,7 @@ export default function ImageCropper() {
                 />
               </Box>
 
-              <Box display="flex" gap={1} alignItems="center">
+              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                 <FormControl size="small" sx={{ flex: 1 }}>
                   <InputLabel>Aspect</InputLabel>
                   <Select
@@ -254,7 +256,7 @@ export default function ImageCropper() {
       </Box>
 
       {images.length === 0 && (
-        <Box textAlign="center" py={4}>
+        <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography color="text.secondary" variant="body2">
             ยังไม่มีภาพ — อัปโหลดด้านบนเพื่อเริ่มครอป
           </Typography>

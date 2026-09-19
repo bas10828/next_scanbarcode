@@ -21,7 +21,7 @@ import {
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import DescriptionIcon from "@mui/icons-material/Description";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import ClearIcon from "@mui/icons-material/Clear";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -183,9 +183,11 @@ const GenerateReport: React.FC = () => {
     <Stack spacing={3}>
       {/* File upload section */}
       <Box
-        display="grid"
-        gridTemplateColumns={{ xs: "1fr", sm: "repeat(3, 1fr)" }}
-        gap={2}
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" },
+          gap: 2,
+        }}
       >
         {(["project", "inventory"] as const).map((kind) => {
           const cfg = FILE_CONFIG[kind];
@@ -208,10 +210,10 @@ const GenerateReport: React.FC = () => {
                 "&:hover": { borderColor: cfg.border, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" },
               }}
             >
-              <Box display="flex" alignItems="center" gap={1.5}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                 <UploadFileIcon sx={{ color: hasData ? "primary.main" : "grey.400", fontSize: 28 }} />
-                <Box flex={1}>
-                  <Typography variant="subtitle2" fontWeight={600}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                     {cfg.label}
                   </Typography>
                   {name ? (
@@ -253,10 +255,10 @@ const GenerateReport: React.FC = () => {
             "&:hover": { borderColor: "#d8b4fe", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" },
           }}
         >
-          <Box display="flex" alignItems="center" gap={1.5}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <AddPhotoAlternateIcon sx={{ color: images.length > 0 ? "secondary.main" : "grey.400", fontSize: 28 }} />
-            <Box flex={1}>
-              <Typography variant="subtitle2" fontWeight={600}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 เพิ่มรูป
               </Typography>
               {images.length > 0 ? (
@@ -286,9 +288,9 @@ const GenerateReport: React.FC = () => {
 
       {/* Image gallery */}
       {images.length > 0 && (
-        <Box display="flex" flexWrap="wrap" gap={1.5}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
           {images.map((img, idx) => (
-            <Box key={idx} position="relative" sx={{ width: 80 }}>
+            <Box key={idx} sx={{ position: "relative", width: 80 }}>
               <Box
                 component="img"
                 src={img.dataUrl}
@@ -363,9 +365,9 @@ const GenerateReport: React.FC = () => {
           variant="outlined"
           sx={{ p: 3, bgcolor: "#fffbf7", borderColor: "#fed7aa" }}
         >
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
             <DescriptionIcon sx={{ color: "primary.main" }} />
-            <Typography variant="h6" fontWeight={700}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
               Generated Report
             </Typography>
           </Box>
@@ -390,7 +392,7 @@ const GenerateReport: React.FC = () => {
               <div key={i}>
                 <div>{line || " "}</div>
                 {lineImages[i] && (
-                  <Box display="flex" flexWrap="wrap" gap={1} my={0.5}>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, my: 0.5 }}>
                     {lineImages[i].map((img, j) => (
                       <Box key={j} sx={{ width: 80 }}>
                         <Box
@@ -408,9 +410,15 @@ const GenerateReport: React.FC = () => {
                           }}
                         />
                         <Box
-                          display="flex"
-                          justifyContent="space-between"
-                          sx={{ bgcolor: "grey.100", borderRadius: "0 0 4px 4px", border: "1px solid", borderTop: 0, borderColor: "grey.200" }}
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            bgcolor: "grey.100",
+                            borderRadius: "0 0 4px 4px",
+                            border: "1px solid",
+                            borderTop: 0,
+                            borderColor: "grey.200",
+                          }}
                         >
                           <IconButton
                             size="small"
@@ -501,7 +509,7 @@ type DataTableProps = {
 
 const DataTable: React.FC<DataTableProps> = ({ title, data, onDeleteRow }) => (
   <Box>
-    <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+    <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 700 }}>
       {title}
       <Chip
         label={`${data.length - 1} rows`}

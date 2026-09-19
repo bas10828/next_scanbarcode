@@ -98,9 +98,9 @@ function VideoCapture() {
             borderRadius: 2,
           }}
         >
-          <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
             <QrCodeIcon sx={{ fontSize: 18, color: "primary.main" }} />
-            <Typography variant="caption" fontWeight={700} color="primary.main">
+            <Typography variant="caption" color="primary.main" sx={{ fontWeight: 700 }}>
               ผลการสแกนล่าสุด
             </Typography>
           </Box>
@@ -123,14 +123,18 @@ function VideoCapture() {
                 size="small"
                 sx={{ fontSize: "0.68rem", height: 20, bgcolor: "#16a34a", color: "#fff", fontWeight: 600 }}
               />
-              <Typography variant="body2" fontFamily="monospace" fontWeight={700} color="#15803d">
+              <Typography
+                variant="body2"
+                color="#15803d"
+                sx={{ fontFamily: "monospace", fontWeight: 700 }}
+              >
                 {cleanlineSN}
               </Typography>
             </Box>
           )}
           <Stack spacing={0.75}>
             {results.map((r, i) => (
-              <Box key={i} display="flex" alignItems="center" gap={1.5}>
+              <Box key={i} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                 <Chip
                   label={r.format}
                   size="small"
@@ -145,8 +149,7 @@ function VideoCapture() {
                 />
                 <Typography
                   variant="body2"
-                  fontFamily="monospace"
-                  sx={{ wordBreak: "break-all", color: "#7c2d12" }}
+                  sx={{ fontFamily: "monospace", wordBreak: "break-all", color: "#7c2d12" }}
                 >
                   {r.text}
                 </Typography>
@@ -165,7 +168,7 @@ function VideoCapture() {
             textAlign: "center",
           }}
         >
-          <Typography variant="body2" color="text.secondary" fontStyle="italic">
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
             ผลการ scan จะแสดงที่นี่ — เปิดกล้องแล้วชี้ไปที่ barcode/QR
           </Typography>
         </Box>

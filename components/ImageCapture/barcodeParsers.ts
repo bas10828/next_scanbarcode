@@ -537,7 +537,7 @@ const OUI_BRAND: Record<string, Brand> = {
   "F41E57": "mikrotik",
 };
 
-const formatMacAddress = (mac: string): string =>
+export const formatMacAddress = (mac: string): string =>
   mac
     .match(/.{1,2}/g)
     ?.join(":")

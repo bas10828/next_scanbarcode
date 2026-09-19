@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   AppBar,
   Toolbar,
@@ -87,14 +87,10 @@ export default function Home() {
   // Lazy-mount tabs but keep them mounted once visited so user state survives switches.
   const [visited, setVisited] = useState<Set<number>>(new Set([0]));
 
-  useEffect(() => {
-    setVisited((prev) => {
-      if (prev.has(tabIndex)) return prev;
-      const next = new Set(prev);
-      next.add(tabIndex);
-      return next;
-    });
-  }, [tabIndex]);
+  const handleTabChange = (idx: number) => {
+    setTabIndex(idx);
+    setVisited((prev) => (prev.has(idx) ? prev : new Set(prev).add(idx)));
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -114,7 +110,7 @@ export default function Home() {
           </Toolbar>
           <Tabs
             value={tabIndex}
-            onChange={(_, idx) => setTabIndex(idx)}
+            onChange={(_, idx) => handleTabChange(idx)}
             variant="scrollable"
             scrollButtons="auto"
             allowScrollButtonsMobile

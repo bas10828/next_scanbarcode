@@ -16,15 +16,16 @@ import {
   Chip,
   Tooltip,
   Checkbox,
+  TextField,
 } from "@mui/material";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import UndoIcon from "@mui/icons-material/Undo";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
-import * as XLSX from "xlsx";
+import writeXlsxFile from "write-excel-file/browser";
 import {
   StyledTableCell,
   StyledTableContainer,
@@ -35,6 +36,7 @@ import {
   BRAND_OPTIONS,
   parseBarcode,
   detectBrand,
+  formatMacAddress,
   type Brand,
   type ParsedBarcode,
 } from "../ImageCapture/barcodeParsers";
@@ -161,6 +163,23 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
     applyBrand(index, resolveBrand(brand, results[index].barcodeText), results);
   };
 
+  // Manual override for a single field — used when the scanner misreads or
+  // misses a value entirely, so the user can just type it in. Typing into
+  // MAC auto-formats to XX:XX:XX:XX:XX:XX as you go (strip non-hex, group by 2).
+  const updateRowField = useCallback(
+    (index: number, field: "model" | "serial" | "mac" | "mac_", value: string) => {
+      const nextValue =
+        field === "mac"
+          ? formatMacAddress(value.replace(/[^0-9a-fA-F]/g, "").toUpperCase().slice(0, 12))
+          : value;
+      setRows((prev) => ({
+        ...prev,
+        [index]: { ...(prev[index] ?? EMPTY_ROW), [field]: nextValue },
+      }));
+    },
+    [],
+  );
+
   const handleSelectAll = (brand: Brand) => {
     results.forEach((result, index) =>
       applyBrand(index, resolveBrand(brand, result.barcodeText), results),
@@ -231,29 +250,47 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
     await decode(files);
   };
 
-  const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(
-      displayIndices.map((index) => {
-        const result = results[index];
-        const row = rows[index] ?? EMPTY_ROW;
-        return {
-          BarcodeText: result.barcodeText.join(", "),
-          FileName: removeFileExtension(result.fileName),
-          Brand: row.brand,
-          Model: row.model,
-          Serial: row.serial,
-          MAC: row.mac,
-          MAC_: row.mac_,
-        };
-      }),
-    );
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Barcode Results");
-    XLSX.writeFile(wb, exportFileName);
+  type ExcelRow = {
+    BarcodeText: string;
+    FileName: string;
+    Brand: string;
+    Model: string;
+    Serial: string;
+    MAC: string;
+    MAC_: string;
+  };
+
+  const EXCEL_COLUMNS: Array<{
+    header: string;
+    cell: (row: ExcelRow) => { value: string };
+  }> = (
+    ["BarcodeText", "FileName", "Brand", "Model", "Serial", "MAC", "MAC_"] as const
+  ).map((key) => ({
+    header: key,
+    cell: (row: ExcelRow) => ({ value: row[key] }),
+  }));
+
+  const exportToExcel = async () => {
+    const rowsData: ExcelRow[] = displayIndices.map((index) => {
+      const result = results[index];
+      const row = rows[index] ?? EMPTY_ROW;
+      return {
+        BarcodeText: result.barcodeText.join(", "),
+        FileName: removeFileExtension(result.fileName),
+        Brand: row.brand,
+        Model: row.model,
+        Serial: row.serial,
+        MAC: row.mac,
+        MAC_: row.mac_,
+      };
+    });
+
+    await writeXlsxFile(rowsData, { columns: EXCEL_COLUMNS }).toFile(exportFileName);
   };
 
   // Duplicate detection — each unique duplicate value gets a 1-based group number (unlimited)
   // and a cycling palette color (16 colors). Both are shown together in the cell.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- React Compiler isn't enabled for this project; manual useMemo is intentional.
   const displayIndices = useMemo(() => {
     const indices = results.map((_, i) => i);
     if (sortDir === "none") return indices;
@@ -298,7 +335,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
 
       {results.length > 0 && (
         <>
-          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
             <Chip label={`${results.length} ภาพ`} color="primary" size="small" />
             {(dupSnGroups > 0 || dupMacGroups > 0) && (
               <Chip
@@ -326,7 +363,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                 ))}
               </Select>
             </FormControl>
-            <Box flexGrow={1} />
+            <Box sx={{ flexGrow: 1 }} />
             <Button
               variant="outlined"
               color="inherit"
@@ -364,7 +401,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                     onClick={() => setSortDir((prev) => prev === "asc" ? "desc" : "asc")}
                     sx={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}
                   >
-                    <Box display="flex" alignItems="center" gap={0.5}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                       File Name
                       {sortDir === "asc" ? (
                         <ArrowUpwardIcon sx={{ fontSize: "0.9rem" }} />
@@ -425,12 +462,22 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                           ))}
                         </Select>
                       </StyledTableCell>
-                      <StyledTableCell>{row.model}</StyledTableCell>
+                      <StyledTableCell sx={{ minWidth: 110 }}>
+                        <TextField
+                          variant="standard"
+                          size="small"
+                          fullWidth
+                          value={row.model}
+                          onChange={(e) => updateRowField(index, "model", e.target.value)}
+                          slotProps={{ input: { disableUnderline: true } }}
+                          sx={{ "& input": { fontSize: "0.8125rem", py: 0.25 } }}
+                        />
+                      </StyledTableCell>
                       <StyledTableCell
-                        sx={rowPalette ? { color: rowPalette.fg, fontWeight: 700 } : undefined}
+                        sx={{ minWidth: 130, ...(rowPalette ? { color: rowPalette.fg, fontWeight: 700 } : {}) }}
                       >
-                        {rowGroup != null ? (
-                          <Box display="flex" alignItems="center" gap={0.5}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          {rowGroup != null && (
                             <Box component="span" sx={{
                               display: "inline-flex", alignItems: "center", justifyContent: "center",
                               minWidth: 18, height: 18, borderRadius: "50%",
@@ -439,15 +486,46 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
                             }}>
                               {rowGroup}
                             </Box>
-                            {row.serial}
-                          </Box>
-                        ) : row.serial}
+                          )}
+                          <TextField
+                            variant="standard"
+                            size="small"
+                            fullWidth
+                            value={row.serial}
+                            onChange={(e) => updateRowField(index, "serial", e.target.value)}
+                            slotProps={{ input: { disableUnderline: true } }}
+                            sx={{
+                              "& input": {
+                                fontSize: "0.8125rem",
+                                py: 0.25,
+                                fontWeight: rowPalette ? 700 : undefined,
+                                color: rowPalette ? rowPalette.fg : undefined,
+                              },
+                            }}
+                          />
+                        </Box>
                       </StyledTableCell>
-                      <StyledTableCell sx={{ fontFamily: "monospace" }}>
-                        {row.mac}
+                      <StyledTableCell sx={{ minWidth: 150 }}>
+                        <TextField
+                          variant="standard"
+                          size="small"
+                          fullWidth
+                          value={row.mac}
+                          onChange={(e) => updateRowField(index, "mac", e.target.value)}
+                          slotProps={{ input: { disableUnderline: true } }}
+                          sx={{ "& input": { fontFamily: "monospace", fontSize: "0.8125rem", py: 0.25 } }}
+                        />
                       </StyledTableCell>
-                      <StyledTableCell sx={{ fontFamily: "monospace" }}>
-                        {row.mac_}
+                      <StyledTableCell sx={{ minWidth: 150 }}>
+                        <TextField
+                          variant="standard"
+                          size="small"
+                          fullWidth
+                          value={row.mac_}
+                          onChange={(e) => updateRowField(index, "mac_", e.target.value)}
+                          slotProps={{ input: { disableUnderline: true } }}
+                          sx={{ "& input": { fontFamily: "monospace", fontSize: "0.8125rem", py: 0.25 } }}
+                        />
                       </StyledTableCell>
                       <StyledTableCell align="center">
                         <Button
@@ -467,7 +545,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
             </Table>
           </StyledTableContainer>
 
-          <Box display="flex" justifyContent="flex-end" pt={1}>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 1 }}>
             <Button
               variant="contained"
               color="primary"
@@ -481,7 +559,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
       )}
 
       {results.length === 0 && !busy && (
-        <Box textAlign="center" py={4}>
+        <Box sx={{ textAlign: "center", py: 4 }}>
           <Typography color="text.secondary" variant="body2">
             ยังไม่มีผลการ scan — อัปโหลดภาพด้านบนเพื่อเริ่มต้น
           </Typography>
@@ -525,7 +603,7 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
               ))}
             </Select>
           </FormControl>
-          <Box flexGrow={1} />
+          <Box sx={{ flexGrow: 1 }} />
           <Button
             size="small"
             variant="outlined"
