@@ -5,7 +5,12 @@ export type MatcherContext = {
   rawDetail: unknown;
   quantity: unknown;
   currentBuilding: string;
+  // True when an inventory Location belongs to the current section.
+  inBuilding: (location: unknown) => boolean;
+  // Device rows only (header/title rows already removed), canonical COL order.
   inventoryData: ExcelRow[];
+  // Lower-cased details of every row in the current section.
+  siblingDetails: string[];
   buildingIndex: number;
   subItemIndex: number;
 };

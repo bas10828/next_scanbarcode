@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import readXlsxFile from "read-excel-file";
 import {
   Typography,
@@ -17,6 +17,7 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  Alert,
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -29,6 +30,10 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import type { ExcelRow, ReportImage } from "./types";
 import { generateReportText } from "./reportGenerator";
 import { exportReportToWord } from "./wordExport";
+import { checkImages, computeLineImages } from "./imageMatch";
+import { computeChecks } from "./checks";
+import type { SectionMode } from "./sections";
+import CheckPanel from "./CheckPanel";
 
 type FileKind = "project" | "inventory";
 
@@ -36,23 +41,6 @@ const FILE_CONFIG = {
   project: { label: "Project File", color: "#eff6ff", border: "#bfdbfe", chip: "primary" as const },
   inventory: { label: "Inventory File", color: "#f0fdf4", border: "#bbf7d0", chip: "success" as const },
 };
-
-function computeLineImages(
-  reportText: string,
-  images: ReportImage[],
-): Record<number, ReportImage[]> {
-  if (images.length === 0) return {};
-  const result: Record<number, ReportImage[]> = {};
-  reportText.split("\n").forEach((line, idx) => {
-    const matches = Array.from(line.matchAll(/\(([^()]+)\)/g));
-    const candidates = matches.filter((m) => m[1].length > 4 || /[A-Za-z]/.test(m[1]));
-    if (candidates.length === 0) return;
-    const label = candidates[candidates.length - 1][1].toUpperCase();
-    const matched = images.filter((img) => img.name.toUpperCase().includes(label));
-    if (matched.length > 0) result[idx] = matched;
-  });
-  return result;
-}
 
 const GenerateReport: React.FC = () => {
   const [projectData, setProjectData] = useState<ExcelRow[]>([]);
@@ -63,16 +51,39 @@ const GenerateReport: React.FC = () => {
   const [images, setImages] = useState<ReportImage[]>([]);
   const [lineImages, setLineImages] = useState<Record<number, ReportImage[]>>({});
   const [lineImagesHistory, setLineImagesHistory] = useState<Record<number, ReportImage[]>[]>([]);
+  const [sectionMode, setSectionMode] = useState<SectionMode>("header");
+  const [customKeywords, setCustomKeywords] = useState<Record<number, string>>({});
   const projectRef = useRef<HTMLInputElement>(null);
   const inventoryRef = useRef<HTMLInputElement>(null);
   const imagesRef = useRef<HTMLInputElement>(null);
+
+  const [dragOver, setDragOver] = useState<FileKind | "images" | null>(null);
+
+  // A file dropped outside the upload cards would make the browser open it and
+  // throw away everything loaded on this page. Swallow those drops.
+  useEffect(() => {
+    const stop = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+    };
+    window.addEventListener("dragover", stop);
+    window.addEventListener("drop", stop);
+    return () => {
+      window.removeEventListener("dragover", stop);
+      window.removeEventListener("drop", stop);
+    };
+  }, []);
 
   const handleFileUpload = (
     event: React.ChangeEvent<HTMLInputElement>,
     kind: FileKind,
   ) => {
     const file = event.target.files?.[0];
-    if (!file || !file.name.match(/\.xlsx?$/i)) {
+    event.target.value = "";
+    if (file) loadXlsx(file, kind);
+  };
+
+  const loadXlsx = (file: File, kind: FileKind) => {
+    if (!file.name.match(/\.xlsx?$/i)) {
       alert("กรุณาเลือกไฟล์ .xlsx เท่านั้น");
       return;
     }
@@ -88,8 +99,6 @@ const GenerateReport: React.FC = () => {
         else setInventoryData(normalized);
       })
       .catch((err) => console.error("เกิดข้อผิดพลาดในการอ่านไฟล์:", err));
-
-    event.target.value = "";
   };
 
   const readImageFile = (file: File): Promise<ReportImage> =>
@@ -108,13 +117,64 @@ const GenerateReport: React.FC = () => {
       reader.readAsDataURL(file);
     });
 
+  const addImageFiles = async (files: File[]) => {
+    const imgs = files.filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|gif|bmp|webp)$/i.test(f.name));
+    if (imgs.length === 0) return;
+    const newImages = await Promise.all(imgs.map(readImageFile));
+    setImages((prev) => [...prev, ...newImages]);
+  };
+
   const handleAddImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (files.length === 0) return;
-    const newImages = await Promise.all(files.map(readImageFile));
-    setImages((prev) => [...prev, ...newImages]);
+    await addImageFiles(files);
   };
+
+  // Drag & drop: files, or whole folders (walked recursively) for images.
+  const filesFromDrop = async (dt: DataTransfer): Promise<File[]> => {
+    const entries = Array.from(dt.items ?? [])
+      .map((it) => (it.kind === "file" ? it.webkitGetAsEntry?.() : null))
+      .filter((e): e is FileSystemEntry => !!e);
+    if (entries.length === 0) return Array.from(dt.files);
+    const out: File[] = [];
+    const walk = async (entry: FileSystemEntry): Promise<void> => {
+      if (entry.isFile) {
+        out.push(await new Promise<File>((res, rej) => (entry as FileSystemFileEntry).file(res, rej)));
+      } else if (entry.isDirectory) {
+        const reader = (entry as FileSystemDirectoryEntry).createReader();
+        // readEntries returns results in batches; call until empty.
+        for (;;) {
+          const batch = await new Promise<FileSystemEntry[]>((res, rej) => reader.readEntries(res, rej));
+          if (batch.length === 0) break;
+          for (const child of batch) await walk(child);
+        }
+      }
+    };
+    for (const e of entries) await walk(e);
+    return out;
+  };
+
+  const dropProps = (target: FileKind | "images") => ({
+    onDragOver: (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      if (dragOver !== target) setDragOver(target);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(null);
+    },
+    onDrop: async (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(null);
+      const files = await filesFromDrop(e.dataTransfer);
+      if (target === "images") await addImageFiles(files);
+      else {
+        const xlsx = files.find((f) => /\.xlsx?$/i.test(f.name));
+        if (xlsx) loadXlsx(xlsx, target);
+        else alert("กรุณาลากไฟล์ .xlsx เท่านั้น");
+      }
+    },
+  });
 
   const handleDeleteImage = (idx: number) => {
     setImages((prev) => prev.filter((_, i) => i !== idx));
@@ -164,8 +224,23 @@ const GenerateReport: React.FC = () => {
     });
   };
 
+  const reportOptions = { sectionMode, customKeywords };
+
+  const checks = useMemo(
+    () =>
+      projectData.length > 0 && inventoryData.length > 0
+        ? computeChecks(projectData, inventoryData, { sectionMode, customKeywords })
+        : null,
+    [projectData, inventoryData, sectionMode, customKeywords],
+  );
+
+  const imageCheck = useMemo(
+    () => (report && images.length > 0 ? checkImages(report, images, lineImages) : null),
+    [report, images, lineImages],
+  );
+
   const handleGenerate = () => {
-    const text = generateReportText(projectData, inventoryData);
+    const text = generateReportText(projectData, inventoryData, reportOptions);
     setReport(text);
     setLineImages(computeLineImages(text, images));
   };
@@ -199,11 +274,12 @@ const GenerateReport: React.FC = () => {
             <Card
               key={kind}
               onClick={() => ref.current?.click()}
+              {...dropProps(kind)}
               sx={{
                 p: 2.5,
                 bgcolor: cfg.color,
                 border: "2px dashed",
-                borderColor: hasData ? cfg.border : "grey.300",
+                borderColor: dragOver === kind ? "primary.main" : hasData ? cfg.border : "grey.300",
                 borderRadius: 2,
                 cursor: "pointer",
                 transition: "all 0.2s",
@@ -225,7 +301,7 @@ const GenerateReport: React.FC = () => {
                     />
                   ) : (
                     <Typography variant="caption" color="text.secondary">
-                      คลิกเพื่อเลือกไฟล์ .xlsx
+                      คลิกหรือลากไฟล์ .xlsx มาวาง
                     </Typography>
                   )}
                 </Box>
@@ -244,11 +320,12 @@ const GenerateReport: React.FC = () => {
         {/* Image upload card */}
         <Card
           onClick={() => imagesRef.current?.click()}
+          {...dropProps("images")}
           sx={{
             p: 2.5,
             bgcolor: "#fdf4ff",
             border: "2px dashed",
-            borderColor: images.length > 0 ? "#d8b4fe" : "grey.300",
+            borderColor: dragOver === "images" ? "secondary.main" : images.length > 0 ? "#d8b4fe" : "grey.300",
             borderRadius: 2,
             cursor: "pointer",
             transition: "all 0.2s",
@@ -270,7 +347,7 @@ const GenerateReport: React.FC = () => {
                 />
               ) : (
                 <Typography variant="caption" color="text.secondary">
-                  คลิกเพื่อเลือกรูปภาพ
+                  คลิกหรือลากรูป / โฟลเดอร์มาวาง
                 </Typography>
               )}
             </Box>
@@ -347,6 +424,16 @@ const GenerateReport: React.FC = () => {
         <DataTable title="Inventory Data" data={inventoryData} />
       )}
 
+      {checks && (
+        <CheckPanel
+          checks={checks}
+          mode={sectionMode}
+          onModeChange={setSectionMode}
+          customKeywords={customKeywords}
+          onKeywordChange={(i, v) => setCustomKeywords((prev) => ({ ...prev, [i]: v }))}
+        />
+      )}
+
       <Button
         variant="contained"
         color="primary"
@@ -354,7 +441,7 @@ const GenerateReport: React.FC = () => {
         fullWidth
         onClick={handleGenerate}
         startIcon={<AutoAwesomeIcon />}
-        disabled={projectData.length === 0 && inventoryData.length === 0}
+        disabled={(projectData.length === 0 && inventoryData.length === 0) || Boolean(checks?.inventoryError)}
         sx={{ py: 1.5 }}
       >
         Generate Report
@@ -451,6 +538,27 @@ const GenerateReport: React.FC = () => {
               </div>
             ))}
           </Box>
+
+          {imageCheck && (imageCheck.unused.length > 0 || imageCheck.shared.length > 0) && (
+            <Stack spacing={1} sx={{ mt: 2 }}>
+              {imageCheck.unused.length > 0 && (
+                <Alert severity="warning">
+                  <b>รูปที่ไม่ได้ใช้ ({imageCheck.unused.length})</b> — ชื่อไฟล์ไม่ตรงกับ Device Name บรรทัดไหน:{" "}
+                  {imageCheck.unused.join(", ")}
+                </Alert>
+              )}
+              {imageCheck.shared.length > 0 && (
+                <Alert severity="info">
+                  <b>รูปที่ไปอยู่หลายบรรทัด</b> — ลบออกจากบรรทัดที่ไม่ใช่:
+                  {imageCheck.shared.map((s) => (
+                    <div key={s.name} style={{ fontSize: "0.8rem" }}>
+                      {s.name} → {s.lines.join(", ")}
+                    </div>
+                  ))}
+                </Alert>
+              )}
+            </Stack>
+          )}
 
           <Button
             onClick={handleExportWord}
