@@ -242,7 +242,22 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
     autoAppliedRef.current = null;
   };
 
-  const handleFiles = async (files: File[]) => {
+  // Dropped/picked files wait in a queue so photos from several folders can be
+  // collected first; scanning starts only when the user presses Scan.
+  const [pending, setPending] = useState<File[]>([]);
+  const fileKey = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
+
+  const handleFiles = (files: File[]) => {
+    setPending((prev) => {
+      const seen = new Set(prev.map(fileKey));
+      return [...prev, ...files.filter((f) => !seen.has(fileKey(f)))];
+    });
+  };
+
+  const handleScan = async () => {
+    if (pending.length === 0) return;
+    const files = pending;
+    setPending([]);
     setRows({});
     setUndoStack([]);
     setSelected(new Set());
@@ -325,6 +340,50 @@ const BarcodeScanWorkflow: React.FC<BarcodeScanWorkflowProps> = ({
   return (
     <Stack spacing={2}>
       <FileDropZone onFiles={handleFiles} busy={busy} busyText={busyText} hint={hint} />
+
+      {pending.length > 0 && !busy && (
+        <Box
+          sx={{
+            p: 1.5,
+            border: "1px solid",
+            borderColor: "grey.300",
+            borderRadius: 2,
+            bgcolor: "#fafbfc",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", mb: 1 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              รอ scan {pending.length} รูป
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              ลากรูปจากโฟลเดอร์อื่นเพิ่มได้ แล้วกด Scan
+            </Typography>
+            <Box sx={{ flexGrow: 1 }} />
+            <Button size="small" color="inherit" variant="outlined" onClick={() => setPending([])}>
+              ล้างคิว
+            </Button>
+            <Button size="small" variant="contained" onClick={handleScan}>
+              Scan {pending.length} รูป
+            </Button>
+          </Box>
+          {results.length > 0 && (
+            <Typography variant="caption" color="warning.main" sx={{ display: "block", mb: 1 }}>
+              กด Scan แล้วผลเดิมในตารางจะถูกแทนที่
+            </Typography>
+          )}
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, maxHeight: 120, overflowY: "auto" }}>
+            {pending.map((f, i) => (
+              <Chip
+                key={fileKey(f)}
+                label={f.name}
+                size="small"
+                onDelete={() => setPending((p) => p.filter((_, j) => j !== i))}
+                sx={{ fontSize: "0.7rem" }}
+              />
+            ))}
+          </Box>
+        </Box>
+      )}
 
       {busy && progress.total > 0 && (
         <LinearProgress
