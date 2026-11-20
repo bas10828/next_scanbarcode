@@ -4,7 +4,9 @@ import {
   Alert,
   Box,
   Card,
+  Checkbox,
   Chip,
+  FormControlLabel,
   Stack,
   Table,
   TableBody,
@@ -25,6 +27,8 @@ type Props = {
   checks: CheckResult;
   mode: SectionMode;
   onModeChange: (mode: SectionMode) => void;
+  limitQty: boolean;
+  onLimitQtyChange: (v: boolean) => void;
   customKeywords: Record<number, string>;
   onKeywordChange: (index: number, value: string) => void;
 };
@@ -43,7 +47,7 @@ const CountChip: React.FC<{ label: string; est: number; inv: number }> = ({ labe
   );
 };
 
-const CheckPanel: React.FC<Props> = ({ checks, mode, onModeChange, customKeywords, onKeywordChange }) => (
+const CheckPanel: React.FC<Props> = ({ checks, mode, onModeChange, limitQty, onLimitQtyChange, customKeywords, onKeywordChange }) => (
   <Card variant="outlined" sx={{ p: 2.5, borderColor: "#c7d2fe", bgcolor: "#f8faff" }}>
     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5, flexWrap: "wrap" }}>
       <FactCheckIcon sx={{ color: "primary.main" }} />
@@ -66,6 +70,12 @@ const CheckPanel: React.FC<Props> = ({ checks, mode, onModeChange, customKeyword
       ส่วนนี้แสดงในเว็บเท่านั้น ไม่ลงในรายงาน
       {mode === "custom" && " — ใส่คำที่อยู่ใน Location คั่นด้วย , (ปล่อยว่าง = ใช้ชื่อหัวข้อ)"}
     </Typography>
+
+    <FormControlLabel
+      sx={{ display: "flex", mb: 1 }}
+      control={<Checkbox size="small" checked={limitQty} onChange={(e) => onLimitQtyChange(e.target.checked)} />}
+      label="จำกัดจำนวนอุปกรณ์ตามประมาณงาน (ใช้เมื่อตึกเดียวถูกแบ่งหลายใบประมาณการ/หลายเล่ม — เอา N ตัวแรกตามชื่อ Device Name)"
+    />
 
     <Stack spacing={1} sx={{ mb: 1.5 }}>
       {checks.inventoryError && <Alert severity="error">{checks.inventoryError}</Alert>}

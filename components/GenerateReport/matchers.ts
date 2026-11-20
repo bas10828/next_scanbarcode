@@ -1,8 +1,18 @@
 import type { ExcelRow, Matcher, MatcherContext, MatcherOutcome } from "./types";
 import { collapseSpaces, normalize } from "./reportUtils";
 
-const sortByDeviceName = (rows: ExcelRow[]): ExcelRow[] =>
-  [...rows].sort((a, b) => String(a[6] ?? "").localeCompare(String(b[6] ?? "")));
+// Picks which inventory rows a matcher reports.
+//  - ctx.collect: receives every candidate row (sorted) — used by the web picker.
+//  - ctx.only: Device Names the user chose explicitly (wins over limit).
+//  - ctx.limit: quantity the estimate asks for; when the inventory holds more
+//    (one building split across several estimates), the first N by Device Name.
+const sortByDeviceName = (rows: ExcelRow[], ctx: MatcherContext): ExcelRow[] => {
+  const sorted = [...rows].sort((a, b) => String(a[6] ?? "").localeCompare(String(b[6] ?? "")));
+  ctx.collect?.(sorted);
+  if (ctx.only) return sorted.filter((r) => ctx.only!.has(String(r[6] ?? "")));
+  const limit = ctx.limit;
+  return limit !== undefined && limit > 0 && sorted.length > limit ? sorted.slice(0, limit) : sorted;
+};
 
 export const isControllerDetail = (d: string): boolean => {
   const isOmadaModel = d.includes("oc200") || d.includes("oc220") || d.includes("oc300");
@@ -39,8 +49,7 @@ const accessPoint: Matcher = (ctx) => {
           !isOmadaControllerModel(model) &&
           inBuilding(location)
         );
-      }),
-  );
+      }), ctx);
 
   if (aps.length === 0) return { type: "category-no-inv" };
 
@@ -73,8 +82,7 @@ const controller: Matcher = (ctx) => {
       if (!model) return false;
       const type = normalize(deviceType);
       return (type.includes("controller") || type.includes("omada")) && inBuilding(location);
-    }),
-  );
+    }), ctx);
 
   if (controllers.length === 0) return { type: "category-no-inv" };
 
@@ -101,8 +109,7 @@ const injector: Matcher = (ctx) => {
       if (!model) return false;
       const modelNorm = collapseSpaces(String(model));
       return modelNorm.length > 2 && dNormalized.includes(modelNorm) && inBuilding(location);
-    }),
-  );
+    }), ctx);
 
   if (injectors.length === 0) return { type: "category-no-inv" };
 
@@ -143,8 +150,7 @@ const switchMatcher: Matcher = (ctx) => {
   const candidateRows = matchedModelRows.length > 0 ? matchedModelRows : switchRows;
 
   const switches = sortByDeviceName(
-    candidateRows.filter(([, , , , , , , , location]) => inBuilding(location)),
-  );
+    candidateRows.filter(([, , , , , , , , location]) => inBuilding(location)), ctx);
 
   if (switches.length === 0) return { type: "category-no-inv" };
 
@@ -178,8 +184,7 @@ const ipPhone: Matcher = (ctx) => {
         typeNorm.includes("ipphone") ||
         typeNorm.includes("telephone");
       return matchType && inBuilding(location);
-    }),
-  );
+    }), ctx);
 
   if (phones.length === 0) return { type: "category-no-inv" };
 
@@ -228,8 +233,7 @@ const router: Matcher = (ctx) => {
       if (!model) return false;
       const typeNorm = normalize(deviceType);
       return typeNorm.includes("router") && inBuilding(location);
-    }),
-  );
+    }), ctx);
 
   if (routers.length === 0) return { type: "category-no-inv" };
 
@@ -258,8 +262,7 @@ const ups: Matcher = (ctx) => {
         const type = String(deviceType ?? "").toLowerCase().trim();
         return type.includes("ups") && inBuilding(location);
       },
-    ),
-  );
+    ), ctx);
 
   if (upsList.length === 0) return { type: "category-no-inv" };
 
@@ -301,8 +304,7 @@ const ipCamera: Matcher = (ctx) => {
     candidateRows.filter(([, , , model, , , , , location]) => {
       if (!model) return false;
       return inBuilding(location);
-    }),
-  );
+    }), ctx);
 
   if (ipCameras.length === 0) return { type: "category-no-inv" };
 
@@ -327,8 +329,7 @@ const nvr: Matcher = (ctx) => {
         const type = String(deviceType ?? "").toLowerCase();
         return type.includes("nvr") && inBuilding(location);
       },
-    ),
-  );
+    ), ctx);
 
   if (nvrs.length === 0) return { type: "category-no-inv" };
 

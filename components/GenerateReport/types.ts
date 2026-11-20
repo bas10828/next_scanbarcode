@@ -13,6 +13,12 @@ export type MatcherContext = {
   siblingDetails: string[];
   buildingIndex: number;
   subItemIndex: number;
+  // Total quantity the estimate lists for this device category in the section.
+  limit?: number;
+  // Device Names the user picked by hand for this category (overrides limit).
+  only?: Set<string>;
+  // Called with every candidate inventory row (used to build the picker).
+  collect?: (rows: ExcelRow[]) => void;
 };
 
 export type MatcherOutcome =

@@ -18,6 +18,8 @@ import {
   IconButton,
   Tooltip,
   Alert,
+  Dialog,
+  Checkbox,
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
@@ -27,11 +29,13 @@ import AddPhotoAlternateIcon from "@mui/icons-material/AddPhotoAlternate";
 import ClearIcon from "@mui/icons-material/Clear";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import CloseIcon from "@mui/icons-material/Close";
 import type { ExcelRow, ReportImage } from "./types";
-import { generateReportText } from "./reportGenerator";
+import { findOverQtyGroups, generateReportText } from "./reportGenerator";
 import { exportReportToWord } from "./wordExport";
 import { checkImages, computeLineImages } from "./imageMatch";
-import { computeChecks } from "./checks";
+import { CATEGORY_LABEL, computeChecks, type Category } from "./checks";
 import type { SectionMode } from "./sections";
 import CheckPanel from "./CheckPanel";
 
@@ -52,7 +56,12 @@ const GenerateReport: React.FC = () => {
   const [lineImages, setLineImages] = useState<Record<number, ReportImage[]>>({});
   const [lineImagesHistory, setLineImagesHistory] = useState<Record<number, ReportImage[]>[]>([]);
   const [sectionMode, setSectionMode] = useState<SectionMode>("header");
+  const [limitToEstimateQty, setLimitToEstimateQty] = useState(true);
   const [customKeywords, setCustomKeywords] = useState<Record<number, string>>({});
+  // Hand-picked devices per `${section}:${category}` (only where inventory > estimate).
+  const [picked, setPicked] = useState<Record<string, string[]>>({});
+  // Full-screen photo viewer: which line + which photo within it.
+  const [preview, setPreview] = useState<{ line: number; idx: number } | null>(null);
   const projectRef = useRef<HTMLInputElement>(null);
   const inventoryRef = useRef<HTMLInputElement>(null);
   const imagesRef = useRef<HTMLInputElement>(null);
@@ -224,7 +233,39 @@ const GenerateReport: React.FC = () => {
     });
   };
 
-  const reportOptions = { sectionMode, customKeywords };
+  const overQtyGroups = useMemo(
+    () =>
+      projectData.length > 0 && inventoryData.length > 0
+        ? findOverQtyGroups(projectData, inventoryData, { sectionMode, customKeywords })
+        : [],
+    [projectData, inventoryData, sectionMode, customKeywords],
+  );
+
+  // Selection actually used: user's picks (only names still in the inventory),
+  // else the first `qty` devices by Device Name.
+  const effectiveSelection = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    overQtyGroups.forEach((g) => {
+      const names = new Set(g.candidates.map((c) => c.name));
+      const mine = picked[g.key]?.filter((n) => names.has(n));
+      out[g.key] = mine ?? g.candidates.slice(0, g.qty).map((c) => c.name);
+    });
+    return out;
+  }, [overQtyGroups, picked]);
+
+  const togglePick = (key: string, name: string) =>
+    setPicked((prev) => {
+      const cur = effectiveSelection[key] ?? [];
+      const next = cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name];
+      return { ...prev, [key]: next };
+    });
+
+  const reportOptions = {
+    sectionMode,
+    customKeywords,
+    limitToEstimateQty,
+    deviceSelection: effectiveSelection,
+  };
 
   const checks = useMemo(
     () =>
@@ -429,9 +470,62 @@ const GenerateReport: React.FC = () => {
           checks={checks}
           mode={sectionMode}
           onModeChange={setSectionMode}
+          limitQty={limitToEstimateQty}
+          onLimitQtyChange={setLimitToEstimateQty}
           customKeywords={customKeywords}
           onKeywordChange={(i, v) => setCustomKeywords((prev) => ({ ...prev, [i]: v }))}
         />
+      )}
+
+      {overQtyGroups.length > 0 && (
+        <Card variant="outlined" sx={{ p: 2.5, borderColor: "#fde68a", bgcolor: "#fffdf5" }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+            เลือกอุปกรณ์ที่ใส่ในรายงานเล่มนี้
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+            หัวข้อด้านล่างมีอุปกรณ์ใน Inventory มากกว่าประมาณงาน — ติ๊กตัวที่จะลงในเล่มนี้ (ติ๊กไว้ให้ล่วงหน้า N ตัวแรก)
+            ทำทีละเล่ม ระบบไม่จำการเลือกของเล่มก่อนหน้า
+          </Typography>
+          <Stack spacing={2}>
+            {overQtyGroups.map((g) => {
+              const sel = effectiveSelection[g.key] ?? [];
+              const ok = sel.length === g.qty;
+              return (
+                <Box key={g.key}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5, flexWrap: "wrap" }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      {g.sectionNo}. {g.sectionName} — {CATEGORY_LABEL[g.cat as Category] ?? g.cat}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      color={ok ? "success" : "warning"}
+                      label={`เลือก ${sel.length} / ประมาณงาน ${g.qty}`}
+                    />
+                  </Box>
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, columnGap: 2 }}>
+                    {g.candidates.map((c) => (
+                      <Box
+                        key={c.name}
+                        component="label"
+                        sx={{ display: "flex", alignItems: "center", cursor: "pointer", fontSize: "0.82rem" }}
+                      >
+                        <Checkbox
+                          size="small"
+                          checked={sel.includes(c.name)}
+                          onChange={() => togglePick(g.key, c.name)}
+                        />
+                        <b style={{ marginRight: 6 }}>{c.name}</b>
+                        <span style={{ color: "#6b7280" }}>
+                          {c.model} · {c.location}
+                        </span>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Stack>
+        </Card>
       )}
 
       <Button
@@ -486,7 +580,9 @@ const GenerateReport: React.FC = () => {
                           component="img"
                           src={img.dataUrl}
                           title={img.name}
+                          onClick={() => setPreview({ line: i, idx: j })}
                           sx={{
+                            cursor: "zoom-in",
                             width: 80,
                             height: 60,
                             objectFit: "cover",
@@ -514,6 +610,13 @@ const GenerateReport: React.FC = () => {
                             sx={{ p: 0.3 }}
                           >
                             <ChevronLeftIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => setPreview({ line: i, idx: j })}
+                            sx={{ p: 0.3 }}
+                          >
+                            <ZoomInIcon sx={{ fontSize: 14 }} />
                           </IconButton>
                           <IconButton
                             size="small"
@@ -571,6 +674,66 @@ const GenerateReport: React.FC = () => {
           </Button>
         </Card>
       )}
+
+      {(() => {
+        const list = preview ? (lineImages[preview.line] ?? []) : [];
+        const img = preview ? list[preview.idx] : undefined;
+        const go = (d: -1 | 1) =>
+          setPreview((p) => (p ? { ...p, idx: Math.min(list.length - 1, Math.max(0, p.idx + d)) } : p));
+        return (
+          <Dialog
+            open={!!img}
+            onClose={() => setPreview(null)}
+            fullScreen
+            slotProps={{ paper: { sx: { bgcolor: "rgba(0,0,0,0.92)" } } }}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") go(-1);
+              if (e.key === "ArrowRight") go(1);
+            }}
+          >
+            {img && preview && (
+              <Box
+                onClick={() => setPreview(null)}
+                sx={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", p: 2 }}
+              >
+                <Box
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ display: "flex", alignItems: "center", gap: 2, color: "white", width: "100%", mb: 1 }}
+                >
+                  <Typography sx={{ flex: 1, fontWeight: 600 }}>
+                    {img.name} ({preview.idx + 1}/{list.length}) — {report.split("\n")[preview.line]}
+                  </Typography>
+                  <IconButton onClick={() => setPreview(null)} sx={{ color: "white" }}>
+                    <CloseIcon />
+                  </IconButton>
+                </Box>
+                <Box sx={{ flex: 1, minHeight: 0, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                  <IconButton
+                    disabled={preview.idx === 0}
+                    onClick={(e) => { e.stopPropagation(); go(-1); }}
+                    sx={{ color: "white" }}
+                  >
+                    <ChevronLeftIcon sx={{ fontSize: 48 }} />
+                  </IconButton>
+                  <Box
+                    component="img"
+                    src={img.dataUrl}
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                  />
+                  <IconButton
+                    disabled={preview.idx === list.length - 1}
+                    onClick={(e) => { e.stopPropagation(); go(1); }}
+                    sx={{ color: "white" }}
+                  >
+                    <ChevronRightIcon sx={{ fontSize: 48 }} />
+                  </IconButton>
+                </Box>
+              </Box>
+            )}
+          </Dialog>
+        );
+      })()}
 
       {lineImagesHistory.length > 0 && (
         <Box
